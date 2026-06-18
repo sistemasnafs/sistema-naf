@@ -1,0 +1,2703 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de NAFs — Secretaria de Educação</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.0/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --border: #e2e5ea;
+  --border-strong: #c8cdd6;
+  --text: #1a1d23;
+  --text-muted: #5f6575;
+  --text-light: #9ba3b2;
+  --accent: #1d4ed8;
+  --accent-h: #1e40af;
+  --accent-light: #eff6ff;
+  --accent-border: #bfdbfe;
+  --success: #15803d;
+  --success-light: #f0fdf4;
+  --success-border: #86efac;
+  --warn: #b45309;
+  --warn-light: #fffbeb;
+  --warn-border: #fcd34d;
+  --danger: #b91c1c;
+  --danger-light: #fef2f2;
+  --danger-border: #fca5a5;
+  --purple: #6d28d9;
+  --purple-light: #f5f3ff;
+  --purple-border: #c4b5fd;
+  --sidebar-w: 220px;
+  --header-h: 58px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.10);
+}
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+/* ── LAYOUT ── */
+.app { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: var(--sidebar-w); background: #0f172a; color: #e2e8f0;
+  display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 200;
+  transition: transform 0.25s;
+  overflow: hidden;
+}
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+.sidebar-logo {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.sidebar-logo .logo-icon { font-size: 22px; margin-bottom: 4px; }
+.sidebar-logo .logo-title { font-size: 13px; font-weight: 700; color: #f1f5f9; line-height: 1.3; }
+.sidebar-logo .logo-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+.nav-section { padding: 10px 8px 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; margin: 1px 8px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 13px; color: #94a3b8;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-item:hover { background: rgba(255,255,255,0.06); color: #e2e8f0; }
+.nav-item.active { background: var(--accent); color: #fff; }
+.nav-item .nav-icon { font-size: 16px; flex-shrink: 0; }
+.nav-badge { margin-left: auto; background: rgba(255,255,255,0.15); color: #e2e8f0; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px; }
+.nav-item.active .nav-badge { background: rgba(255,255,255,0.25); }
+
+.sidebar-footer { margin-top: auto; padding: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.sheets-status { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+.sheets-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+.sheets-dot.connected { background: #22c55e; }
+
+.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+.topbar {
+  height: var(--header-h); background: var(--card);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 24px;
+  gap: 12px; position: sticky; top: 0; z-index: 100;
+  box-shadow: var(--shadow);
+}
+.topbar-title { font-size: 16px; font-weight: 700; }
+.topbar-sub { font-size: 12px; color: var(--text-muted); margin-left: 2px; }
+.topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.content { padding: 24px; flex: 1; }
+
+/* ── PAGES ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── STATS ROW ── */
+.stats-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 22px; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+.stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
+.stat-val { font-size: 26px; font-weight: 700; line-height: 1; }
+.stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.stat-blue { border-left: 3px solid var(--accent); }
+.stat-green { border-left: 3px solid var(--success); }
+.stat-warn { border-left: 3px solid var(--warn); }
+.stat-purple { border-left: 3px solid var(--purple); }
+
+/* ── CARD ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden; }
+.card-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.card-title { font-size: 14px; font-weight: 700; }
+.card-body { padding: 18px; }
+
+/* ── FORM ── */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.form-input, .form-select, .form-textarea {
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  padding: 8px 11px; font-size: 14px; font-family: inherit;
+  background: #fff; color: var(--text); outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+}
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+
+.form-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+.btn { padding: 9px 18px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: opacity 0.15s, transform 0.1s; display: inline-flex; align-items: center; gap: 6px; }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-secondary { background: none; color: var(--text-muted); border: 1px solid var(--border-strong); }
+.btn-secondary:hover { background: var(--bg); }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { opacity: 0.9; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { opacity: 0.9; }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
+/* ── FILTERS ── */
+.filters-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.search-wrap { position: relative; flex: 1; min-width: 180px; }
+.search-wrap input { width: 100%; padding: 8px 11px 8px 34px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 13px; background: var(--card); outline: none; }
+.search-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-light); font-size: 15px; pointer-events: none; }
+.filter-select { padding: 8px 28px 8px 11px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 13px; background: var(--card); outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; color: var(--text); }
+.filter-select:focus { border-color: var(--accent); }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { background: var(--bg); border-bottom: 1px solid var(--border); padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); white-space: nowrap; }
+thead th.sortable { cursor: pointer; user-select: none; transition: background 0.1s, color 0.1s; }
+thead th.sortable:hover { background: #e9ecf2; color: var(--text); }
+thead th.sortable.active { color: var(--accent); background: var(--accent-light); }
+.sort-ind { display: inline-block; margin-left: 4px; font-size: 11px; opacity: 0.5; transition: opacity 0.1s; }
+thead th.sortable.active .sort-ind { opacity: 1; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: #f8fafc; }
+tbody td { padding: 10px 14px; vertical-align: middle; }
+.td-naf { font-weight: 700; color: var(--accent); font-size: 13px; }
+.td-empresa { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-desc { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px; }
+
+/* ── PILLS ── */
+.pill { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.pill-pendente  { background: var(--warn-light);    color: var(--warn);    border: 1px solid var(--warn-border); }
+.pill-processo  { background: var(--accent-light);  color: var(--accent);  border: 1px solid var(--accent-border); }
+.pill-concluida { background: var(--success-light); color: var(--success); border: 1px solid var(--success-border); }
+.pill-anulada   { background: var(--danger-light);  color: var(--danger);  border: 1px solid var(--danger-border); }
+.pill-sim   { background: var(--success-light); color: var(--success); border: 1px solid var(--success-border); }
+.pill-nao   { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); }
+
+/* inline select in table */
+.inline-select { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px 22px 4px 8px; font-size: 12px; background: var(--bg); cursor: pointer; outline: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 6px center; color: var(--text); }
+.inline-select:focus { border-color: var(--accent); }
+
+.action-btns { display: flex; gap: 4px; }
+.icon-btn { background: none; border: none; cursor: pointer; padding: 4px 7px; border-radius: var(--radius-sm); font-size: 15px; color: var(--text-muted); transition: background 0.1s, color 0.1s; }
+.icon-btn:hover { background: var(--bg); color: var(--text); }
+.icon-btn.danger:hover { background: var(--danger-light); color: var(--danger); }
+
+/* ── ANEXOS ── */
+.attach-zone {
+  border: 2px dashed var(--border-strong); border-radius: var(--radius-sm);
+  padding: 18px; text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: border-color 0.15s, background 0.15s; background: var(--bg);
+}
+.attach-zone:hover { border-color: var(--accent); background: var(--accent-light); }
+.anexos-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.anexo-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+.anexo-icon { font-size: 20px; flex-shrink: 0; }
+.anexo-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.anexo-size { font-size: 11px; color: var(--text-muted); }
+.anexo-actions { display: flex; gap: 4px; }
+
+/* ── BADGES DE TEMPO ── */
+.age-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; margin-left: 6px;
+}
+.age-old   { background: var(--warn-light); color: var(--warn); border: 1px solid var(--warn-border); }
+.age-critic { background: var(--danger-light); color: var(--danger); border: 1px solid var(--danger-border); }
+
+/* ── ALERTAS ── */
+.alert-banner {
+  background: var(--warn-light); border: 1px solid var(--warn-border);
+  border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px; font-size: 13px;
+}
+.alert-banner.danger { background: var(--danger-light); border-color: var(--danger-border); }
+.alert-banner .alert-icon { font-size: 20px; flex-shrink: 0; }
+.alert-text { flex: 1; line-height: 1.5; }
+.alert-text strong { color: var(--warn); }
+.alert-banner.danger .alert-text strong { color: var(--danger); }
+.alert-banner button {
+  font-size: 12px; padding: 4px 10px;
+  background: var(--card); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); cursor: pointer; font-weight: 600;
+}
+
+/* ── HISTÓRICO ── */
+.hist-list { display: flex; flex-direction: column; gap: 0; }
+.hist-item {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.hist-item:last-child { border-bottom: none; }
+.hist-icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-light); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0;
+}
+.hist-icon.create { background: var(--success-light); color: var(--success); }
+.hist-icon.edit { background: var(--accent-light); color: var(--accent); }
+.hist-icon.move { background: var(--purple-light); color: var(--purple); }
+.hist-icon.status { background: var(--warn-light); color: var(--warn); }
+.hist-content { flex: 1; min-width: 0; }
+.hist-action { font-size: 13px; font-weight: 500; }
+.hist-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.hist-time { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+
+/* ── EMPTY ── */
+.empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 500; display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow-md); width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; transform: scale(0.97); transition: transform 0.2s; }
+.modal-overlay.open .modal { transform: scale(1); }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.modal-title { font-size: 15px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { background: var(--bg); }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ── SETTINGS ── */
+.resp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.resp-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.resp-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-light); color: var(--accent); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.resp-name { font-weight: 600; font-size: 13px; flex: 1; }
+.resp-count { font-size: 11px; color: var(--text-muted); }
+
+/* ── SHEETS CONFIG ── */
+.config-section { margin-bottom: 24px; }
+.config-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.config-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.6; }
+.step-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.step-item { display: flex; gap: 12px; align-items: flex-start; }
+.step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.step-text { font-size: 12px; color: var(--text-muted); line-height: 1.6; flex: 1; }
+.step-text a { color: var(--accent); text-decoration: none; }
+.step-text a:hover { text-decoration: underline; }
+.step-text code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 11px; color: var(--text); font-family: monospace; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; background: #0f172a; color: #fff; padding: 12px 18px; border-radius: var(--radius); font-size: 13px; box-shadow: var(--shadow-md); opacity: 0; transform: translateY(8px); transition: opacity 0.2s, transform 0.2s; pointer-events: none; max-width: 320px; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: #14532d; }
+.toast.error { background: #7f1d1d; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 680px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .topbar { padding: 0 14px; }
+  .content { padding: 14px; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<!-- ── TELA DE LOGIN ── -->
+<div id="loginScreen" style="position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.12);width:100%;max-width:400px;overflow:hidden">
+    <div style="background:#0f172a;padding:28px 24px;text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">📋</div>
+      <div style="color:#f1f5f9;font-size:18px;font-weight:700;margin-bottom:4px">Sistema de NAFs</div>
+      <div style="color:#64748b;font-size:13px">Secretaria Municipal de Educação</div>
+    </div>
+    <div style="padding:28px 24px">
+      <div id="loginMsg" style="display:none;margin-bottom:16px;padding:10px 14px;border-radius:8px;font-size:13px"></div>
+      <div style="margin-bottom:16px">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:6px">E-mail</label>
+        <input id="loginEmail" type="email" class="form-input" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')document.getElementById('loginSenha').focus()"/>
+      </div>
+      <div style="margin-bottom:24px">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:6px">Senha</label>
+        <div style="position:relative">
+          <input id="loginSenha" type="password" class="form-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()" style="padding-right:44px"/>
+          <button onclick="toggleSenhaLogin()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px" id="btnVerSenha">👁️</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:12px;font-size:15px" onclick="fazerLogin()" id="btnLogin">
+        Entrar
+      </button>
+      <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text-muted);line-height:1.6;text-align:center">
+        Acesso restrito. Solicite seu cadastro ao administrador do sistema.
+      </div>
+      <div id="loginOfflineMsg" style="display:none;margin-top:12px;padding:10px 14px;background:var(--warn-light);border:1px solid var(--warn-border);border-radius:8px;font-size:12px;color:var(--warn);text-align:center">
+        ⚠️ Sheets não configurado. <a href="#" onclick="entrarSemLogin()" style="color:var(--accent);font-weight:600">Entrar no modo offline</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="appContainer" style="display:none">
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">📋</div>
+    <div class="logo-title">Sistema de NAFs</div>
+    <div class="logo-sub">Secretaria de Educação</div>
+  </div>
+
+  <div class="sidebar-nav">
+  <div class="nav-section">Menu</div>
+  <div class="nav-item active" onclick="goPage('dashboard')">
+    <span class="nav-icon">📊</span> Dashboard
+  </div>
+  <div class="nav-item" onclick="goPage('nova')">
+    <span class="nav-icon">➕</span> Nova NAF
+  </div>
+  <div class="nav-item" onclick="goPage('lista')">
+    <span class="nav-icon">📄</span> Todas as NAFs
+    <span class="nav-badge" id="navTotal">0</span>
+  </div>
+  <div class="nav-item" onclick="goPage('historico')">
+    <span class="nav-icon">🕐</span> Histórico
+  </div>
+
+  <div class="nav-section">Responsáveis</div>
+  <div id="navResps"></div>
+
+  <div class="nav-section">Configurações</div>
+  <div class="nav-item" onclick="goPage('responsaveis')">
+    <span class="nav-icon">👥</span> Responsáveis
+  </div>
+  <div class="nav-item" onclick="goPage('backup')">
+    <span class="nav-icon">💾</span> Backup e Restauração
+  </div>
+  <div class="nav-item" onclick="goPage('configuracoes')">
+    <span class="nav-icon">⚙️</span> Google Sheets
+  </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="sheets-status">
+      <div class="sheets-dot" id="sheetsDot"></div>
+      <span id="sheetsStatusText">Google Sheets: não conectado</span>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <button style="background:none;border:none;cursor:pointer;font-size:20px;display:none" id="menuBtn" onclick="toggleSidebar()">☰</button>
+    <div>
+      <div class="topbar-title" id="topbarTitle">Dashboard</div>
+      <div class="topbar-sub" id="topbarSub">Visão geral</div>
+    </div>
+    <div class="topbar-right">
+      <div id="userBadge" style="display:none;align-items:center;gap:8px;padding:5px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700" id="userAvatar">?</div>
+        <div>
+          <div style="font-weight:600;line-height:1.2" id="userName">—</div>
+          <div style="font-size:11px;color:var(--text-muted)" id="userRole">—</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="exportPDF()" title="Gerar relatório PDF" id="btnPDF">📄 PDF</button>
+      <button class="btn btn-success btn-sm" onclick="exportExcel()" title="Exportar planilha Excel" id="btnExcel">📊 Excel</button>
+      <button class="btn btn-primary btn-sm" onclick="goPage('nova')" id="btnNova">+ Nova NAF</button>
+      <button class="btn btn-secondary btn-sm" onclick="logout()" id="btnLogout" style="display:none">Sair</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div id="alertArea"></div>
+      <div class="stats-row" id="statsRow"></div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 NAFs Recentes</span>
+          <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="goPage('lista')">Ver todas →</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nº NAF</th><th>Data</th><th>Empresa</th><th>Responsável</th><th>Status</th><th>NF</th></tr></thead>
+            <tbody id="dashTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- NOVA NAF -->
+    <div class="page" id="page-nova">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">➕ Registrar Nova NAF</span>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label">Nº NAF *</label>
+              <input class="form-input" id="n_naf" placeholder="Ex: 1824"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nº Memorando (MEM)</label>
+              <input class="form-input" id="n_mem" placeholder="Ex: 137"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Data *</label>
+              <input class="form-input" id="n_data" type="date"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Responsável *</label>
+              <select class="form-select" id="n_resp"></select>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">Empresa *</label>
+              <input class="form-input" id="n_empresa" placeholder="Razão social do fornecedor"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">E-mail</label>
+              <input class="form-input" id="n_email" type="email" placeholder="email@empresa.com"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefone</label>
+              <input class="form-input" id="n_tel" placeholder="(00) 00000-0000"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select class="form-select" id="n_status">
+                <option value="Pendente">Pendente</option>
+                <option value="Em processo">Em processo</option>
+                <option value="Concluída">Concluída</option>
+                <option value="Anulada">Anulada</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Entregou NF / Realizou serviço?</label>
+              <select class="form-select" id="n_nf">
+                <option value="Não">Não</option>
+                <option value="Sim">Sim</option>
+                <option value="Anulada">Anulada</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Pagamento realizado?</label>
+              <select class="form-select" id="n_pag">
+                <option value="Não">Não</option>
+                <option value="Sim">Sim</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">Descrição da NAF *</label>
+              <textarea class="form-textarea" id="n_desc" placeholder="Descreva o objeto da NAF — o que está sendo comprado ou contratado"></textarea>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">Observações</label>
+              <textarea class="form-textarea" id="n_obs" rows="2" placeholder="Observações adicionais (opcional)"></textarea>
+            </div>
+            <div class="form-group full">
+              <label class="form-label">📎 Anexos (foto da NAF, nota fiscal, etc.)</label>
+              <div class="attach-zone" onclick="document.getElementById('n_anexos_input').click()">
+                <input type="file" id="n_anexos_input" multiple accept="image/*,.pdf" style="display:none" onchange="addAnexos('n', this.files)"/>
+                <span style="font-size:22px">📎</span>
+                <div style="font-size:13px;color:var(--text-muted)">Clique para adicionar fotos ou PDFs</div>
+              </div>
+              <div id="n_anexos_list" class="anexos-list"></div>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="saveNAF()">💾 Salvar NAF</button>
+            <button class="btn btn-secondary" onclick="clearForm()">Limpar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTA -->
+    <div class="page" id="page-lista">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📄 Todas as NAFs</span>
+          <span style="font-size:12px;color:var(--text-muted);margin-left:8px" id="listaCount"></span>
+        </div>
+        <div class="card-body" style="padding-bottom:0">
+          <div class="filters-row">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="searchInput" placeholder="Buscar por empresa, Nº NAF, descrição..." oninput="renderLista()"/>
+            </div>
+            <select class="filter-select" id="filterResp" onchange="renderLista()">
+              <option value="">Todos responsáveis</option>
+            </select>
+            <select class="filter-select" id="filterStatus" onchange="renderLista()">
+              <option value="">Todos status</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Em processo">Em processo</option>
+              <option value="Concluída">Concluída</option>
+              <option value="Anulada">Anulada</option>
+            </select>
+            <select class="filter-select" id="filterNF" onchange="renderLista()">
+              <option value="">Todos — NF</option>
+              <option value="Não">Sem NF</option>
+              <option value="Sim">Com NF</option>
+            </select>
+            <select class="filter-select" id="filterPag" onchange="renderLista()">
+              <option value="">Todos — Pagamento</option>
+              <option value="Não">Sem pagamento</option>
+              <option value="Sim">Pago</option>
+            </select>
+            <select class="filter-select" id="sortBy" onchange="renderLista()" style="border-color:var(--accent-border);background-color:var(--accent-light);color:var(--accent);font-weight:600">
+              <option value="id_desc">↓ Mais recentes primeiro</option>
+              <option value="id_asc">↑ Mais antigas primeiro</option>
+              <option value="data_desc">📅 Data (mais nova)</option>
+              <option value="data_asc">📅 Data (mais antiga)</option>
+              <option value="naf_asc">🔢 Nº NAF (crescente)</option>
+              <option value="naf_desc">🔢 Nº NAF (decrescente)</option>
+              <option value="mem_asc">📑 Nº MEM (crescente)</option>
+              <option value="mem_desc">📑 Nº MEM (decrescente)</option>
+              <option value="empresa_asc">🏢 Empresa (A → Z)</option>
+              <option value="empresa_desc">🏢 Empresa (Z → A)</option>
+              <option value="responsavel_asc">👤 Responsável (A → Z)</option>
+              <option value="status_asc">🏷️ Status</option>
+              <option value="pendentes_first">⚠️ Pendentes primeiro</option>
+              <option value="sem_nf_first">📄 Sem NF primeiro</option>
+              <option value="sem_pag_first">💰 Sem pagamento primeiro</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="clearFilters()" title="Limpar todos os filtros e ordenação" style="font-size:12px">✕ Limpar</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th class="sortable" onclick="sortByColumn('naf')">Nº NAF <span class="sort-ind" id="ind_naf"></span></th>
+              <th class="sortable" onclick="sortByColumn('mem')">MEM <span class="sort-ind" id="ind_mem"></span></th>
+              <th class="sortable" onclick="sortByColumn('data')">Data <span class="sort-ind" id="ind_data"></span></th>
+              <th class="sortable" onclick="sortByColumn('empresa')">Empresa <span class="sort-ind" id="ind_empresa"></span></th>
+              <th>Descrição</th>
+              <th class="sortable" onclick="sortByColumn('responsavel')">Responsável <span class="sort-ind" id="ind_responsavel"></span></th>
+              <th class="sortable" onclick="sortByColumn('status')">Status <span class="sort-ind" id="ind_status"></span></th>
+              <th class="sortable" onclick="sortByColumn('nf')">NF <span class="sort-ind" id="ind_nf"></span></th>
+              <th class="sortable" onclick="sortByColumn('pagamento')">Pagamento <span class="sort-ind" id="ind_pagamento"></span></th>
+              <th></th>
+            </tr></thead>
+            <tbody id="listaTable"></tbody>
+          </table>
+        </div>
+        <div id="listaEmpty" class="empty-state" style="display:none">
+          <div class="empty-icon">🔍</div>
+          Nenhuma NAF encontrada com esses filtros.
+        </div>
+      </div>
+    </div>
+
+    <!-- RESPONSÁVEL FILTRADO -->
+    <div class="page" id="page-resp">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="respPageTitle">NAFs do Responsável</span>
+          <span style="font-size:12px;color:var(--text-muted);margin-left:8px" id="respCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Nº NAF</th><th>MEM</th><th>Data</th><th>Empresa</th>
+              <th>Descrição</th><th>Status</th><th>NF</th><th>Pagamento</th><th></th>
+            </tr></thead>
+            <tbody id="respTable"></tbody>
+          </table>
+        </div>
+        <div id="respEmpty" class="empty-state" style="display:none">
+          <div class="empty-icon">📂</div>
+          Nenhuma NAF registrada para este responsável ainda.
+        </div>
+      </div>
+    </div>
+
+    <!-- RESPONSÁVEIS -->
+    <div class="page" id="page-responsaveis">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">👥 Gerenciar Responsáveis</span>
+          <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openAddResp()">+ Adicionar</button>
+        </div>
+        <div class="card-body">
+          <div class="resp-list" id="respList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div class="page" id="page-historico">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🕐 Histórico de Alterações</span>
+          <span style="font-size:12px;color:var(--text-muted);margin-left:8px" id="histCount"></span>
+          <button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="limparHistorico()">🗑️ Limpar histórico</button>
+        </div>
+        <div class="card-body" style="padding-bottom:0">
+          <div class="filters-row">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="histSearch" placeholder="Buscar no histórico..." oninput="renderHistorico()"/>
+            </div>
+            <select class="filter-select" id="histType" onchange="renderHistorico()">
+              <option value="">Todas as ações</option>
+              <option value="create">➕ Criadas</option>
+              <option value="edit">✏️ Editadas</option>
+              <option value="status">🏷️ Mudança de status</option>
+              <option value="move">🔀 Movidas</option>
+              <option value="delete">🗑️ Excluídas</option>
+            </select>
+          </div>
+        </div>
+        <div class="hist-list" id="histList"></div>
+        <div id="histEmpty" class="empty-state" style="display:none">
+          <div class="empty-icon">📜</div>
+          Nenhum registro no histórico ainda.
+        </div>
+      </div>
+    </div>
+
+    <!-- BACKUP E RESTAURAÇÃO -->
+    <div class="page" id="page-backup">
+      <div class="card">
+        <div class="card-header"><span class="card-title">💾 Backup completo do sistema</span></div>
+        <div class="card-body">
+          <div class="config-desc" style="margin-bottom:18px">
+            Use o <strong>arquivo de backup JSON</strong> para guardar tudo: NAFs, responsáveis e configurações. Esse formato preserva 100% dos dados e é o recomendado para atualizações do sistema. O CSV é útil para abrir no Excel ou compartilhar com outras pessoas.
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px">
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+              <div style="font-size:24px;margin-bottom:6px">📦</div>
+              <div style="font-weight:700;margin-bottom:4px">Backup completo (JSON)</div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px">
+                Tudo: NAFs, responsáveis, histórico, anexos. Use antes de atualizações.
+              </div>
+              <button class="btn btn-primary" style="width:100%" onclick="exportBackup()">⬇ Baixar JSON</button>
+            </div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+              <div style="font-size:24px;margin-bottom:6px">📊</div>
+              <div style="font-weight:700;margin-bottom:4px">Planilha Excel organizada</div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px">
+                Arquivo .xlsx com aba geral + uma aba para cada responsável + resumo.
+              </div>
+              <button class="btn btn-success" style="width:100%" onclick="exportExcel()">⬇ Baixar Excel</button>
+            </div>
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+              <div style="font-size:24px;margin-bottom:6px">📋</div>
+              <div style="font-weight:700;margin-bottom:4px">Lista simples (CSV)</div>
+              <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px">
+                Arquivo único com todas as NAFs em formato CSV padrão.
+              </div>
+              <button class="btn btn-secondary" style="width:100%" onclick="exportCSV()">⬇ Baixar CSV</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">📤 Restaurar dados</span></div>
+        <div class="card-body">
+          <div class="config-desc" style="margin-bottom:18px">
+            Restaure dados de um backup anterior. <strong>Atenção:</strong> ao restaurar, você pode escolher entre <strong>substituir</strong> tudo ou <strong>adicionar</strong> as NAFs ao que já existe no sistema.
+          </div>
+
+          <div class="config-section">
+            <div class="config-title">📦 Restaurar do arquivo JSON (backup completo)</div>
+            <div class="config-desc">Restaura NAFs + responsáveis + configurações.</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+              <label class="btn btn-primary" style="cursor:pointer;margin:0">
+                📤 Selecionar arquivo JSON
+                <input type="file" accept=".json" onchange="importJSON(this)" style="display:none"/>
+              </label>
+              <span style="font-size:12px;color:var(--text-muted)">Formato: backup_naf_AAAA-MM-DD.json</span>
+            </div>
+          </div>
+
+          <div class="config-section" style="border-top:1px solid var(--border);padding-top:18px">
+            <div class="config-title">📊 Importar do arquivo CSV (só NAFs)</div>
+            <div class="config-desc">Para reimportar NAFs exportadas pelo sistema. As colunas devem seguir o mesmo padrão do CSV exportado.</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px">
+              <label class="btn btn-success" style="cursor:pointer;margin:0">
+                📤 Selecionar arquivo CSV
+                <input type="file" accept=".csv" onchange="importCSV(this)" style="display:none"/>
+              </label>
+              <span style="font-size:12px;color:var(--text-muted)">Formato: controle_nafs_AAAA-MM-DD.csv</span>
+            </div>
+          </div>
+
+          <div id="importMsg" style="margin-top:16px;font-size:13px;display:none;padding:12px 14px;border-radius:var(--radius-sm)"></div>
+        </div>
+      </div>
+
+      <div class="card" style="background:var(--warn-light);border-color:var(--warn-border)">
+        <div class="card-body" style="padding:14px 18px">
+          <div style="font-size:13px;color:var(--warn);line-height:1.6">
+            💡 <strong>Recomendação:</strong> Faça um backup JSON pelo menos uma vez por semana e antes de qualquer atualização do sistema. Guarde os arquivos no Google Drive para segurança extra.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div class="page" id="page-configuracoes">
+      <div class="card">
+        <div class="card-header"><span class="card-title">⚙️ Integração com Google Sheets via Apps Script</span></div>
+        <div class="card-body">
+
+          <div class="config-section">
+            <div class="config-title">📋 Passo a passo — faça uma vez só</div>
+            <div class="step-list">
+              <div class="step-item">
+                <div class="step-num">1</div>
+                <div class="step-text">Acesse <a href="https://sheets.google.com" target="_blank">sheets.google.com</a> e crie uma planilha nova. Dê o nome <code>Controle de NAFs</code>. Guarde o link dela para compartilhar com o Helder depois.</div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">2</div>
+                <div class="step-text">Dentro da planilha, clique em <strong>Extensões → Apps Script</strong>. Vai abrir o editor de código.</div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">3</div>
+                <div class="step-text">Apague tudo que tiver no editor e <strong>cole o código do arquivo</strong> <code>apps_script_naf.gs</code> que você baixou junto com este sistema.</div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">4</div>
+                <div class="step-text">Clique em <strong>Implantar → Nova implantação</strong>. Em "Tipo", escolha <strong>Aplicativo da Web</strong>. Em "Executar como", escolha <strong>Eu</strong>. Em "Quem tem acesso", escolha <strong>Qualquer pessoa</strong>. Clique em Implantar e autorize as permissões.</div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">5</div>
+                <div class="step-text">Após implantar, aparece uma <strong>URL do aplicativo web</strong>. Copie essa URL e cole no campo abaixo.</div>
+              </div>
+              <div class="step-item">
+                <div class="step-num">6</div>
+                <div class="step-text">Clique em <strong>Salvar e Testar</strong>. Se aparecer "Conectado com sucesso", está pronto!</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section">
+            <div class="config-title">🔗 URL do seu Apps Script</div>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label class="form-label">URL do aplicativo web (Apps Script)</label>
+                <input class="form-input" id="cfg_scripturl" placeholder="https://script.google.com/macros/s/AKfyc.../exec"/>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="saveConfig()">💾 Salvar e Conectar</button>
+              <button class="btn btn-secondary" onclick="testSheets()">🔗 Testar conexão</button>
+              <button class="btn btn-success" onclick="syncAllToSheets()">🔄 Sincronizar tudo agora</button>
+            </div>
+            <div id="configMsg" style="margin-top:12px;font-size:13px;display:none"></div>
+          </div>
+
+          <div class="config-section" style="border-top:1px solid var(--border);padding-top:18px">
+            <div class="config-title">📊 O que a planilha terá</div>
+            <div class="config-desc">
+              A planilha será organizada automaticamente com as seguintes abas, sempre atualizadas em tempo real:
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-weight:700;margin-bottom:4px;font-size:13px">📊 Resumo</div>
+                <div style="font-size:12px;color:var(--text-muted)">Totais gerais, por status, por responsável</div>
+              </div>
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-weight:700;margin-bottom:4px;font-size:13px">📋 Todas as NAFs</div>
+                <div style="font-size:12px;color:var(--text-muted)">Lista completa em ordem, com todas as colunas</div>
+              </div>
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-weight:700;margin-bottom:4px;font-size:13px">👤 Por responsável</div>
+                <div style="font-size:12px;color:var(--text-muted)">Uma aba para cada: Helder, Bethânia, Angélica, Joaquim, Rafael</div>
+              </div>
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+                <div style="font-weight:700;margin-bottom:4px;font-size:13px">⚠️ Requer atenção</div>
+                <div style="font-size:12px;color:var(--text-muted)">Pendentes, sem NF ou sem pagamento</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="config-section" style="background:var(--accent-light);border:1px solid var(--accent-border);border-radius:var(--radius);padding:14px 18px;margin-top:8px">
+            <div style="font-size:13px;color:var(--accent);line-height:1.7">
+              💡 <strong>Como compartilhar com o Helder:</strong> Na planilha do Google Sheets, clique em <strong>Compartilhar</strong> (canto superior direito), adicione o e-mail do Helder e defina a permissão como <strong>Leitor</strong>. Ele poderá ver tudo em tempo real pelo Drive, mas não poderá editar.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div><!-- content -->
+</div><!-- main -->
+</div><!-- appContainer -->
+
+<!-- MODAL EDITAR NAF -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Editar NAF</span>
+      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="e_id"/>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Nº NAF</label>
+          <input class="form-input" id="e_naf"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nº MEM</label>
+          <input class="form-input" id="e_mem"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data</label>
+          <input class="form-input" id="e_data" type="date"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Responsável</label>
+          <select class="form-select" id="e_resp"></select>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Empresa</label>
+          <input class="form-input" id="e_empresa"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">E-mail</label>
+          <input class="form-input" id="e_email" type="email"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Telefone</label>
+          <input class="form-input" id="e_tel"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="e_status">
+            <option value="Pendente">Pendente</option>
+            <option value="Em processo">Em processo</option>
+            <option value="Concluída">Concluída</option>
+            <option value="Anulada">Anulada</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Entregou NF?</label>
+          <select class="form-select" id="e_nf">
+            <option value="Não">Não</option>
+            <option value="Sim">Sim</option>
+            <option value="Anulada">Anulada</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pagamento</label>
+          <select class="form-select" id="e_pag">
+            <option value="Não">Não</option>
+            <option value="Sim">Sim</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Descrição</label>
+          <textarea class="form-textarea" id="e_desc"></textarea>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">Observações</label>
+          <textarea class="form-textarea" id="e_obs" rows="2"></textarea>
+        </div>
+        <div class="form-group full">
+          <label class="form-label">📎 Anexos</label>
+          <div class="attach-zone" onclick="document.getElementById('e_anexos_input').click()">
+            <input type="file" id="e_anexos_input" multiple accept="image/*,.pdf" style="display:none" onchange="addAnexos('e', this.files)"/>
+            <span style="font-size:22px">📎</span>
+            <div style="font-size:13px;color:var(--text-muted)">Clique para adicionar mais arquivos</div>
+          </div>
+          <div id="e_anexos_list" class="anexos-list"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="updateNAF()">💾 Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADICIONAR RESPONSÁVEL -->
+<div class="modal-overlay" id="addRespModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <span class="modal-title">👤 Adicionar Responsável</span>
+      <button class="modal-close" onclick="closeModal('addRespModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nome completo</label>
+        <input class="form-input" id="newRespName" placeholder="Ex: Maria Silva"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addRespModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="addResponsavel()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMAR IMPORTAÇÃO -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title">📤 Como deseja restaurar?</span>
+      <button class="modal-close" onclick="closeModal('importModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;font-size:13px">
+        <div id="importInfo" style="line-height:1.7"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer" onclick="document.getElementById('imp_add').checked=true">
+          <input type="radio" name="imp_mode" id="imp_add" value="add" checked style="margin-top:3px"/>
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:2px">➕ Adicionar ao que já existe</div>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.5">Mantém as NAFs atuais e adiciona as do arquivo. Útil para juntar dados.</div>
+          </div>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;padding:12px;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer" onclick="document.getElementById('imp_replace').checked=true">
+          <input type="radio" name="imp_mode" id="imp_replace" value="replace" style="margin-top:3px"/>
+          <div>
+            <div style="font-weight:600;font-size:13px;margin-bottom:2px;color:var(--danger)">🔄 Substituir tudo</div>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.5">Apaga as NAFs atuais e coloca apenas as do arquivo. Use ao restaurar backup.</div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="executeImport()">✓ Confirmar restauração</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MOVER NAF -->
+<div class="modal-overlay" id="moverModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title">🔀 Mover NAF para outro responsável</span>
+      <button class="modal-close" onclick="closeModal('moverModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px;font-size:13px;">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:4px;">NAF selecionada</div>
+        <div style="font-weight:700;color:var(--accent)" id="moverNafNum">—</div>
+        <div style="color:var(--text-muted);font-size:12px;margin-top:2px" id="moverNafEmp">—</div>
+        <div style="margin-top:8px;font-size:12px;display:flex;align-items:center;gap:6px">
+          <span style="color:var(--text-muted)">Responsável atual:</span>
+          <strong id="moverRespAtual">—</strong>
+        </div>
+      </div>
+      <input type="hidden" id="mover_id"/>
+      <div class="form-group">
+        <label class="form-label">Mover para</label>
+        <select class="form-select" id="mover_resp" style="font-size:15px;padding:10px 12px"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('moverModal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarMover()">🔀 Confirmar mudança</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── AUTH ──
+let sessao = JSON.parse(localStorage.getItem('naf_sessao') || 'null');
+
+const PERFIS = {
+  admin:        { label: 'Administrador', cor: '#7c3aed' },
+  secretario:   { label: 'Secretário',    cor: '#1d4ed8' },
+  visualizador: { label: 'Visualizador',  cor: '#15803d' },
+  responsavel:  { label: 'Responsável',   cor: '#b45309' },
+};
+
+const PERMISSOES = {
+  admin:        { nova:true,  editar:true,  excluir:true,  mover:true,  configs:true,  usuarios:true,  exportar:true },
+  secretario:   { nova:false, editar:true,  excluir:false, mover:false, configs:false, usuarios:false, exportar:true },
+  visualizador: { nova:false, editar:false, excluir:false, mover:false, configs:false, usuarios:false, exportar:true },
+  responsavel:  { nova:true,  editar:true,  excluir:false, mover:false, configs:false, usuarios:false, exportar:false },
+};
+
+function pode(acao) {
+  if (!sessao) return false;
+  return !!(PERMISSOES[sessao.perfil] || {})[acao];
+}
+
+async function fazerLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  if (!email || !senha) { mostrarErroLogin('Preencha e-mail e senha.'); return; }
+
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true; btn.textContent = 'Verificando...';
+
+  // Sem Sheets configurado — permite admin padrão APENAS offline
+  if (!config.scripturl) {
+    if (email === 'admin@naf' && senha === 'admin123') {
+      iniciarSessao({ nome: 'Administrador', email, perfil: 'admin' });
+      return;
+    }
+    mostrarErroLogin('Configure o Google Sheets ou use: admin@naf / admin123');
+    btn.disabled = false; btn.textContent = 'Entrar';
+    document.getElementById('loginOfflineMsg').style.display = 'block';
+    return;
+  }
+
+  // Sheets configurado — BLOQUEIA admin padrão, tudo vai pelo Sheets
+  if (email === 'admin@naf') {
+    mostrarErroLogin('Acesso offline desativado. Use seu e-mail cadastrado.');
+    btn.disabled = false; btn.textContent = 'Entrar';
+    return;
+  }
+
+  // Verifica no Sheets
+  try {
+    const data = await sheetsGet({ action: 'login', email, senha });
+    if (data && data.status === 'ok' && data.usuario) {
+      iniciarSessao(data.usuario);
+    } else {
+      mostrarErroLogin((data && data.msg) || 'E-mail ou senha incorretos.');
+      btn.disabled = false; btn.textContent = 'Entrar';
+    }
+  } catch(e) {
+    mostrarErroLogin('Sem conexão com o servidor. Tente novamente.');
+    btn.disabled = false; btn.textContent = 'Entrar';
+  }
+}
+
+function iniciarSessao(usuario) {
+  sessao = { ...usuario, token: Date.now(), expira: Date.now() + 8 * 60 * 60 * 1000 };
+  localStorage.setItem('naf_sessao', JSON.stringify(sessao));
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appContainer').style.display = 'flex';
+  aplicarPermissoes();
+  init();
+}
+
+function verificarSessao() {
+  if (sessao && sessao.expira > Date.now()) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appContainer').style.display = 'flex';
+    aplicarPermissoes();
+    init();
+  } else {
+    sessao = null;
+    localStorage.removeItem('naf_sessao');
+    document.getElementById('loginScreen').style.display = 'flex';
+    // Só mostra opção offline se Sheets não estiver configurado
+    if (!config.scripturl) {
+      document.getElementById('loginOfflineMsg').style.display = 'block';
+    } else {
+      document.getElementById('loginOfflineMsg').style.display = 'none';
+    }
+  }
+}
+
+function aplicarPermissoes() {
+  if (!sessao) return;
+  const p = PERMISSOES[sessao.perfil] || {};
+  const info = PERFIS[sessao.perfil] || { label: sessao.perfil, cor: '#64748b' };
+
+  // Badge do usuário
+  const badge = document.getElementById('userBadge');
+  badge.style.display = 'flex';
+  document.getElementById('userAvatar').textContent = sessao.nome.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('userAvatar').style.background = info.cor;
+  document.getElementById('userName').textContent = sessao.nome;
+  document.getElementById('userRole').textContent = info.label;
+  document.getElementById('btnLogout').style.display = 'inline-flex';
+
+  // Botões do topo
+  document.getElementById('btnNova').style.display = p.nova ? 'inline-flex' : 'none';
+  document.getElementById('btnExcel').style.display = p.exportar ? 'inline-flex' : 'none';
+  document.getElementById('btnPDF').style.display = p.exportar ? 'inline-flex' : 'none';
+
+  // Menu lateral — ocultar itens restritos
+  const cfgItem = document.querySelector('.nav-item[onclick*="configuracoes"]');
+  const bkpItem = document.querySelector('.nav-item[onclick*="backup"]');
+  const respItem = document.querySelector('.nav-item[onclick*="responsaveis"]');
+  if (cfgItem) cfgItem.style.display = p.configs ? 'flex' : 'none';
+  if (bkpItem) bkpItem.style.display = p.configs ? 'flex' : 'none';
+  if (respItem) respItem.style.display = p.configs ? 'flex' : 'none';
+
+  // Responsável: filtra só as próprias NAFs ao renderizar
+  if (sessao.perfil === 'responsavel') {
+    const novaItem = document.querySelector('.nav-item[onclick*="nova"]');
+    if (novaItem) novaItem.style.display = 'flex';
+  }
+}
+
+function logout() {
+  if (!confirm('Deseja sair do sistema?')) return;
+  sessao = null;
+  localStorage.removeItem('naf_sessao');
+  document.getElementById('appContainer').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginSenha').value = '';
+  document.getElementById('loginMsg').style.display = 'none';
+  document.getElementById('btnLogin').disabled = false;
+  document.getElementById('btnLogin').textContent = 'Entrar';
+  document.getElementById('userBadge').style.display = 'none';
+  document.getElementById('btnLogout').style.display = 'none';
+}
+
+function entrarSemLogin() {
+  iniciarSessao({ nome: 'Administrador', email: 'admin@naf', perfil: 'admin' });
+}
+
+function mostrarErroLogin(msg) {
+  const el = document.getElementById('loginMsg');
+  el.style.display = 'block';
+  el.style.background = 'var(--danger-light)';
+  el.style.color = 'var(--danger)';
+  el.style.border = '1px solid var(--danger-border)';
+  el.style.borderRadius = '8px';
+  el.textContent = '⚠️ ' + msg;
+}
+
+function toggleSenhaLogin() {
+  const input = document.getElementById('loginSenha');
+  const btn = document.getElementById('btnVerSenha');
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+  else { input.type = 'password'; btn.textContent = '👁️'; }
+}
+
+// ── STATE ──
+let nafs = JSON.parse(localStorage.getItem('nafs_cache') || '[]');
+let responsaveis = JSON.parse(localStorage.getItem('resps_cache') || JSON.stringify(['Helder','Bethânia','Angélica','Joaquim','Rafael']));
+let config = JSON.parse(localStorage.getItem('naf_config') || '{}');
+let historico = JSON.parse(localStorage.getItem('naf_historico') || '[]');
+let currentPage = 'dashboard';
+let currentRespFilter = '';
+let sheetsConectado = false;
+
+// ── INIT — carrega do Sheets primeiro ──
+async function init() {
+  if (config.scripturl) document.getElementById('cfg_scripturl').value = config.scripturl;
+  updateSheetsStatus();
+  populateRespDropdowns();
+  renderNavResps();
+  renderDashboard();
+  renderLista();
+  renderRespList();
+  renderAlertas();
+  setTodayDate();
+
+  // Se tiver Sheets configurado, carrega os dados reais
+  if (config.scripturl) {
+    await carregarDoSheets();
+  }
+}
+
+// ── CARREGAR DO SHEETS ──
+async function carregarDoSheets() {
+  mostrarLoadingGlobal(true);
+  try {
+    const data = await sheetsGet({ action: 'carregar' });
+    if (data && data.status === 'ok') {
+      nafs = data.nafs || [];
+      if (data.responsaveis && data.responsaveis.length) responsaveis = data.responsaveis;
+      localStorage.setItem('nafs_cache', JSON.stringify(nafs));
+      localStorage.setItem('resps_cache', JSON.stringify(responsaveis));
+      sheetsConectado = true;
+      document.getElementById('sheetsDot').classList.add('connected');
+      document.getElementById('sheetsStatusText').textContent = 'Google Sheets: ' + nafs.length + ' NAF(s)';
+      populateRespDropdowns();
+      renderNavResps();
+      renderDashboard();
+      renderLista();
+      renderRespList();
+      renderAlertas();
+    } else {
+      mostrarAvisoCarga('Não foi possível carregar do Sheets. Usando dados locais.');
+    }
+  } catch(e) {
+    mostrarAvisoCarga('Sem conexão com Sheets. Usando dados salvos localmente.');
+  } finally {
+    mostrarLoadingGlobal(false);
+  }
+}
+
+function mostrarLoadingGlobal(show) {
+  let el = document.getElementById('globalLoading');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'globalLoading';
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;height:3px;background:var(--accent);z-index:9999;transition:opacity 0.3s;animation:loadbar 1.5s ease-in-out infinite';
+    const style = document.createElement('style');
+    style.textContent = '@keyframes loadbar{0%{transform:scaleX(0);transform-origin:left}50%{transform:scaleX(0.7);transform-origin:left}100%{transform:scaleX(1);transform-origin:left}}';
+    document.head.appendChild(style);
+    document.body.appendChild(el);
+  }
+  el.style.opacity = show ? '1' : '0';
+}
+
+function mostrarAvisoCarga(msg) {
+  const area = document.getElementById('alertArea');
+  if (!area) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'background:var(--warn-light);border:1px solid var(--warn-border);border-radius:var(--radius);padding:10px 16px;margin-bottom:12px;font-size:13px;color:var(--warn);display:flex;align-items:center;gap:8px';
+  div.innerHTML = '⚠️ ' + msg + ' <button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;color:var(--warn)">✕</button>';
+  area.prepend(div);
+}
+
+
+function setTodayDate() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('n_data').value = today;
+}
+
+// ── NAVIGATION ──
+function goPage(page, extra) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const titles = {
+    dashboard: ['Dashboard','Visão geral'],
+    nova: ['Nova NAF','Preencha os dados abaixo'],
+    lista: ['Todas as NAFs','Buscar, filtrar e gerenciar'],
+    historico: ['Histórico','Registro de todas as alterações'],
+    resp: ['NAFs — ' + extra, 'Filtrado por responsável'],
+    responsaveis: ['Responsáveis','Gerenciar membros da equipe'],
+    backup: ['Backup e Restauração','Exportar e importar dados do sistema'],
+    configuracoes: ['Google Sheets','Configuração da integração']
+  };
+  const [title, sub] = titles[page] || [page, ''];
+  document.getElementById('topbarTitle').textContent = title;
+  document.getElementById('topbarSub').textContent = sub;
+
+  if (page === 'resp') {
+    currentRespFilter = extra;
+    renderRespPage(extra);
+  }
+  if (page === 'lista') renderLista();
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'responsaveis') renderRespList();
+  if (page === 'historico') renderHistorico();
+}
+
+function renderNavResps() {
+  const el = document.getElementById('navResps');
+  el.innerHTML = responsaveis.map(r => {
+    const cnt = nafs.filter(n => n.responsavel === r).length;
+    return `<div class="nav-item" onclick="goPage('resp','${r}')">
+      <span class="nav-icon">👤</span> ${r}
+      ${cnt ? `<span class="nav-badge">${cnt}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── DASHBOARD ──
+function renderDashboard() {
+  const total = nafs.length;
+  const pendentes = nafs.filter(n => n.status === 'Pendente').length;
+  const semNF = nafs.filter(n => n.nf === 'Não' && n.status !== 'Anulada').length;
+  const pagas = nafs.filter(n => n.pagamento === 'Sim').length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card stat-blue">
+      <div class="stat-label">Total de NAFs</div>
+      <div class="stat-val">${total}</div>
+      <div class="stat-sub">registradas</div>
+    </div>
+    <div class="stat-card stat-warn">
+      <div class="stat-label">Pendentes</div>
+      <div class="stat-val">${pendentes}</div>
+      <div class="stat-sub">aguardando</div>
+    </div>
+    <div class="stat-card stat-purple">
+      <div class="stat-label">Sem NF</div>
+      <div class="stat-val">${semNF}</div>
+      <div class="stat-sub">não entregaram</div>
+    </div>
+    <div class="stat-card stat-green">
+      <div class="stat-label">Pagas</div>
+      <div class="stat-val">${pagas}</div>
+      <div class="stat-sub">pagamentos realizados</div>
+    </div>
+  `;
+
+  const recent = [...nafs].sort((a,b) => b.id - a.id).slice(0,8);
+  const tbody = document.getElementById('dashTable');
+  if (!recent.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">Nenhuma NAF registrada ainda.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = recent.map(r => `
+    <tr>
+      <td class="td-naf">${r.naf || '—'}</td>
+      <td>${fmtDate(r.data)}</td>
+      <td class="td-empresa" title="${r.empresa}">${r.empresa || '—'}</td>
+      <td>${r.responsavel || '—'}</td>
+      <td>${pillStatus(r.status)}</td>
+      <td>${pillNF(r.nf)}</td>
+    </tr>`).join('');
+
+  document.getElementById('navTotal').textContent = total;
+}
+
+// ── LISTA ──
+function renderLista() {
+  const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const fResp = document.getElementById('filterResp')?.value || '';
+  const fStatus = document.getElementById('filterStatus')?.value || '';
+  const fNF = document.getElementById('filterNF')?.value || '';
+  const fPag = document.getElementById('filterPag')?.value || '';
+  const sortBy = document.getElementById('sortBy')?.value || 'id_desc';
+
+  let data = applySorting([...nafs], sortBy);
+
+  if (search) data = data.filter(r =>
+    (r.naf||'').toLowerCase().includes(search) ||
+    (r.empresa||'').toLowerCase().includes(search) ||
+    (r.descricao||'').toLowerCase().includes(search) ||
+    (r.responsavel||'').toLowerCase().includes(search));
+  if (fResp) data = data.filter(r => r.responsavel === fResp);
+  if (fStatus) data = data.filter(r => r.status === fStatus);
+  if (fNF) data = data.filter(r => r.nf === fNF);
+  if (fPag) data = data.filter(r => r.pagamento === fPag);
+
+  document.getElementById('listaCount').textContent = data.length + ' NAF(s)';
+  updateSortIndicators(sortBy);
+
+  const tbody = document.getElementById('listaTable');
+  const empty = document.getElementById('listaEmpty');
+
+  if (!data.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = data.map(r => tableRow(r, true)).join('');
+}
+
+function applySorting(data, sortBy) {
+  const statusOrder = { 'Pendente': 1, 'Em processo': 2, 'Concluída': 3, 'Anulada': 4 };
+  const cmpStr = (a, b) => (a||'').toLocaleLowerCase('pt-BR').localeCompare((b||'').toLocaleLowerCase('pt-BR'), 'pt-BR');
+  const cmpNum = (a, b) => (parseFloat(a)||0) - (parseFloat(b)||0);
+  const cmpDate = (a, b) => (a||'') < (b||'') ? -1 : (a||'') > (b||'') ? 1 : 0;
+
+  switch(sortBy) {
+    case 'id_desc':       return data.sort((a,b) => b.id - a.id);
+    case 'id_asc':        return data.sort((a,b) => a.id - b.id);
+    case 'data_desc':     return data.sort((a,b) => cmpDate(b.data, a.data));
+    case 'data_asc':      return data.sort((a,b) => cmpDate(a.data, b.data));
+    case 'naf_asc':       return data.sort((a,b) => cmpNum(a.naf, b.naf));
+    case 'naf_desc':      return data.sort((a,b) => cmpNum(b.naf, a.naf));
+    case 'mem_asc':       return data.sort((a,b) => cmpNum(a.mem, b.mem));
+    case 'mem_desc':      return data.sort((a,b) => cmpNum(b.mem, a.mem));
+    case 'empresa_asc':   return data.sort((a,b) => cmpStr(a.empresa, b.empresa));
+    case 'empresa_desc':  return data.sort((a,b) => cmpStr(b.empresa, a.empresa));
+    case 'responsavel_asc': return data.sort((a,b) => cmpStr(a.responsavel, b.responsavel));
+    case 'status_asc':    return data.sort((a,b) => (statusOrder[a.status]||99) - (statusOrder[b.status]||99));
+    case 'pendentes_first': return data.sort((a,b) => {
+      const aP = a.status === 'Pendente' ? 0 : 1;
+      const bP = b.status === 'Pendente' ? 0 : 1;
+      return aP - bP || b.id - a.id;
+    });
+    case 'sem_nf_first':  return data.sort((a,b) => {
+      const aN = (a.nf === 'Não' && a.status !== 'Anulada') ? 0 : 1;
+      const bN = (b.nf === 'Não' && b.status !== 'Anulada') ? 0 : 1;
+      return aN - bN || b.id - a.id;
+    });
+    case 'sem_pag_first': return data.sort((a,b) => {
+      const aP = (a.pagamento === 'Não' && a.status !== 'Anulada') ? 0 : 1;
+      const bP = (b.pagamento === 'Não' && b.status !== 'Anulada') ? 0 : 1;
+      return aP - bP || b.id - a.id;
+    });
+    default: return data.sort((a,b) => b.id - a.id);
+  }
+}
+
+function updateSortIndicators(sortBy) {
+  // limpa todos
+  document.querySelectorAll('thead th.sortable').forEach(th => th.classList.remove('active'));
+  document.querySelectorAll('.sort-ind').forEach(i => i.textContent = '⇅');
+
+  // mapeia sortBy → coluna e direção
+  const map = {
+    naf_asc: ['naf','↑'], naf_desc: ['naf','↓'],
+    mem_asc: ['mem','↑'], mem_desc: ['mem','↓'],
+    data_asc: ['data','↑'], data_desc: ['data','↓'],
+    empresa_asc: ['empresa','↑'], empresa_desc: ['empresa','↓'],
+    responsavel_asc: ['responsavel','↑'],
+    status_asc: ['status','↑'], pendentes_first: ['status','⚠️'],
+    sem_nf_first: ['nf','⚠️'],
+    sem_pag_first: ['pagamento','⚠️']
+  };
+  const m = map[sortBy];
+  if (m) {
+    const th = document.querySelector(`thead th.sortable[onclick*="'${m[0]}'"]`);
+    if (th) {
+      th.classList.add('active');
+      const ind = document.getElementById('ind_' + m[0]);
+      if (ind) ind.textContent = m[1];
+    }
+  }
+}
+
+function sortByColumn(col) {
+  const sel = document.getElementById('sortBy');
+  const current = sel.value;
+  // alterna entre asc e desc, ou começa em asc
+  const asc = col + '_asc';
+  const desc = col + '_desc';
+  if (current === asc) sel.value = desc;
+  else if (current === desc) sel.value = asc;
+  else sel.value = asc;
+  renderLista();
+}
+
+function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('filterResp').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterNF').value = '';
+  document.getElementById('filterPag').value = '';
+  document.getElementById('sortBy').value = 'id_desc';
+  renderLista();
+  showToast('Filtros e ordenação limpos');
+}
+
+function renderRespPage(resp) {
+  document.getElementById('respPageTitle').textContent = '👤 NAFs — ' + resp;
+  const data = nafs.filter(r => r.responsavel === resp).sort((a,b) => b.id - a.id);
+  document.getElementById('respCount').textContent = data.length + ' NAF(s)';
+  const tbody = document.getElementById('respTable');
+  const empty = document.getElementById('respEmpty');
+  if (!data.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = data.map(r => tableRow(r, false)).join('');
+}
+
+function tableRow(r, showResp) {
+  const anexosCount = (r.anexos || []).length;
+  const podeEditar = pode('editar');
+  const podeExcluir = pode('excluir');
+  const podeMover = pode('mover');
+  const soLeitura = !podeEditar && !podeExcluir && !podeMover;
+  return `<tr>
+    <td class="td-naf">${r.naf||'—'}${getAgeBadge(r)}${anexosCount ? `<span class="age-badge" style="background:var(--accent-light);color:var(--accent);border:1px solid var(--accent-border)" title="${anexosCount} anexo(s)">📎${anexosCount}</span>` : ''}</td>
+    <td style="color:var(--text-muted);font-size:12px">${r.mem||'—'}</td>
+    <td>${fmtDate(r.data)}</td>
+    <td class="td-empresa" title="${r.empresa}">${r.empresa||'—'}</td>
+    <td class="td-desc" title="${r.descricao}">${r.descricao||'—'}</td>
+    ${showResp ? `<td>${r.responsavel||'—'}</td>` : ''}
+    <td>${pillStatus(r.status)}</td>
+    <td>
+      ${podeEditar ? `<select class="inline-select" onchange="quickUpdate(${r.id},'nf',this.value)">
+        <option value="Não" ${r.nf==='Não'?'selected':''}>Não</option>
+        <option value="Sim" ${r.nf==='Sim'?'selected':''}>✓ Sim</option>
+        <option value="Anulada" ${r.nf==='Anulada'?'selected':''}>Anulada</option>
+      </select>` : `<span class="pill ${r.nf==='Sim'?'pill-sim':'pill-nao'}">${r.nf||'Não'}</span>`}
+    </td>
+    <td>
+      ${podeEditar ? `<select class="inline-select" onchange="quickUpdate(${r.id},'pagamento',this.value)">
+        <option value="Não" ${r.pagamento==='Não'?'selected':''}>Não</option>
+        <option value="Sim" ${r.pagamento==='Sim'?'selected':''}>✓ Pago</option>
+      </select>` : `<span class="pill ${r.pagamento==='Sim'?'pill-sim':'pill-nao'}">${r.pagamento||'Não'}</span>`}
+    </td>
+    <td>
+      ${soLeitura ? '' : `<div class="action-btns">
+        ${podeEditar ? `<button class="icon-btn" onclick="openEdit(${r.id})" title="Editar">✏️</button>` : ''}
+        ${podeEditar ? `<button class="icon-btn" onclick="duplicarNAF(${r.id})" title="Duplicar" style="color:var(--success)">📋</button>` : ''}
+        ${podeMover ? `<button class="icon-btn" onclick="openMover(${r.id})" title="Mover" style="color:var(--purple)">🔀</button>` : ''}
+        ${podeExcluir ? `<button class="icon-btn danger" onclick="deleteNAF(${r.id})" title="Excluir">🗑️</button>` : ''}
+      </div>`}
+    </td>
+  </tr>`;
+}
+
+// ── CRUD ──
+async function saveNAF() {
+  const naf = v('n_naf'), empresa = v('n_empresa'), desc = v('n_desc'), resp = v('n_resp');
+  if (!naf) { showToast('Informe o Nº da NAF.','error'); return; }
+  if (!empresa) { showToast('Informe a empresa.','error'); return; }
+  if (!resp) { showToast('Selecione o responsável.','error'); return; }
+
+  const rec = {
+    id: Date.now(),
+    naf, mem: v('n_mem'), data: v('n_data'),
+    empresa, email: v('n_email'), telefone: v('n_tel'),
+    responsavel: resp, status: v('n_status'),
+    nf: v('n_nf'), pagamento: v('n_pag'),
+    descricao: desc, observacoes: v('n_obs'),
+    anexos: [...pendingAnexos.n],
+    criadaEm: new Date().toISOString()
+  };
+
+  // Salva localmente primeiro (resposta imediata)
+  nafs.unshift(rec);
+  pendingAnexos.n = [];
+  persist();
+  logHist('create', `NAF ${naf} criada`, `${empresa} — Responsável: ${resp}`, rec.id);
+  clearForm();
+  renderDashboard();
+  renderAlertas();
+  showToast('NAF salva! Sincronizando...', 'success');
+  goPage('lista');
+
+  // Envia para o Sheets
+  const result = await sheetsPost({ action: 'salvar_naf', naf: rec });
+  if (result && result.status === 'ok') {
+    showToast('✅ NAF salva no Google Sheets!', 'success');
+  } else if (config.scripturl) {
+    showToast('⚠️ Salvo localmente. Sheets offline.', '');
+  }
+}
+
+function duplicarNAF(id) {
+  const r = nafs.find(x => x.id === id);
+  if (!r) return;
+
+  // go to nova page
+  goPage('nova');
+
+  // preenche dados que normalmente se repetem
+  set('n_empresa', r.empresa);
+  set('n_email', r.email);
+  set('n_tel', r.telefone);
+  set('n_resp', r.responsavel);
+  set('n_desc', r.descricao);
+  set('n_obs', r.observacoes);
+
+  // deixa em branco o que muda: NAF, MEM
+  set('n_naf', '');
+  set('n_mem', '');
+
+  // data fica como hoje (default), status volta para Pendente
+  setTodayDate();
+  set('n_status', 'Pendente');
+  set('n_nf', 'Não');
+  set('n_pag', 'Não');
+
+  // não copia anexos (são específicos de cada NAF)
+  pendingAnexos.n = [];
+  renderAnexosList('n');
+
+  // mostra aviso no topo do formulário
+  showDuplicateBanner(r);
+
+  // foca no campo Nº NAF para você já digitar
+  setTimeout(() => {
+    const nafInput = document.getElementById('n_naf');
+    nafInput.focus();
+    nafInput.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 200);
+
+  showToast(`📋 Dados de ${r.empresa} copiados — preencha o novo Nº NAF`, 'success');
+}
+
+function showDuplicateBanner(original) {
+  // remove banner anterior se existir
+  const old = document.getElementById('dupBanner');
+  if (old) old.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'dupBanner';
+  banner.style.cssText = 'background:var(--success-light);border:1px solid var(--success-border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px';
+  banner.innerHTML = `
+    <span style="font-size:20px">📋</span>
+    <div style="flex:1;line-height:1.5">
+      <strong style="color:var(--success)">Duplicando NAF de ${original.empresa}</strong><br>
+      <span style="color:var(--text-muted);font-size:12px">Os dados da empresa foram copiados. Preencha o novo Nº NAF e Nº MEM, ajuste o que precisar e salve.</span>
+    </div>
+    <button class="icon-btn" onclick="document.getElementById('dupBanner').remove()" style="font-size:18px">✕</button>
+  `;
+
+  const cardBody = document.querySelector('#page-nova .card-body');
+  cardBody.insertBefore(banner, cardBody.firstChild);
+}
+
+function openMover(id) {
+  const r = nafs.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('mover_id').value = id;
+  document.getElementById('moverNafNum').textContent = 'NAF Nº ' + (r.naf || '—');
+  document.getElementById('moverNafEmp').textContent = r.empresa || '—';
+  document.getElementById('moverRespAtual').textContent = r.responsavel || '—';
+  // populate select excluding current
+  const sel = document.getElementById('mover_resp');
+  sel.innerHTML = responsaveis
+    .filter(resp => resp !== r.responsavel)
+    .map(resp => `<option value="${resp}">${resp}</option>`).join('');
+  if (!sel.options.length) {
+    showToast('Não há outros responsáveis disponíveis.', 'error');
+    return;
+  }
+  openModal('moverModal');
+}
+
+async function confirmarMover() {
+  const id = +document.getElementById('mover_id').value;
+  const novoResp = document.getElementById('mover_resp').value;
+  const r = nafs.find(x => x.id === id);
+  if (!r || !novoResp) return;
+  const anterior = r.responsavel;
+  r.responsavel = novoResp;
+  persist();
+  logHist('move', `NAF ${r.naf} movida`, `De ${anterior} para ${novoResp} • ${r.empresa}`, r.id);
+  renderDashboard(); renderLista(); renderNavResps();
+  if (currentPage === 'resp') renderRespPage(currentRespFilter);
+  closeModal('moverModal');
+  showToast(`NAF ${r.naf} movida para ${novoResp} ✅`, 'success');
+  await sheetsPost({ action: 'atualizar_naf', naf: r });
+}
+
+async function quickUpdate(id, field, val) {
+  const r = nafs.find(x => x.id === id);
+  if (r) {
+    const old = r[field];
+    r[field] = val;
+    persist();
+    if (field === 'nf' && old !== val) logHist('nf', `NF alterada em NAF ${r.naf}`, `${old} → ${val} • ${r.empresa}`, r.id);
+    else if (field === 'pagamento' && old !== val) logHist('pag', `Pagamento alterado em NAF ${r.naf}`, `${old} → ${val} • ${r.empresa}`, r.id);
+    renderDashboard();
+    renderAlertas();
+    await sheetsPost({ action: 'atualizar_naf', naf: r });
+  }
+}
+
+function openEdit(id) {
+  const r = nafs.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('e_id').value = id;
+  set('e_naf', r.naf); set('e_mem', r.mem); set('e_data', r.data);
+  set('e_empresa', r.empresa); set('e_email', r.email); set('e_tel', r.telefone);
+  set('e_desc', r.descricao); set('e_obs', r.observacoes);
+  set('e_status', r.status); set('e_nf', r.nf); set('e_pag', r.pagamento);
+  populateSelect('e_resp', r.responsavel);
+  // Anexos: começa com os existentes
+  pendingAnexos.e = (r.anexos || []).map(a => ({...a}));
+  renderAnexosList('e');
+  openModal('editModal');
+}
+
+async function updateNAF() {
+  const id = +document.getElementById('e_id').value;
+  const r = nafs.find(x => x.id === id);
+  if (!r) return;
+  const changes = [];
+  const oldStatus = r.status, oldNF = r.nf, oldPag = r.pagamento;
+  const newNaf = v('e_naf'), newStatus = v('e_status'), newNF = v('e_nf'), newPag = v('e_pag');
+  if (r.naf !== newNaf) changes.push(`Nº NAF: ${r.naf} → ${newNaf}`);
+  if (r.mem !== v('e_mem')) changes.push(`MEM atualizado`);
+  if (r.empresa !== v('e_empresa')) changes.push(`Empresa atualizada`);
+  if (oldStatus !== newStatus) changes.push(`Status: ${oldStatus} → ${newStatus}`);
+  if (oldNF !== newNF) changes.push(`NF: ${oldNF} → ${newNF}`);
+  if (oldPag !== newPag) changes.push(`Pagamento: ${oldPag} → ${newPag}`);
+  r.naf = newNaf; r.mem = v('e_mem'); r.data = v('e_data');
+  r.empresa = v('e_empresa'); r.email = v('e_email'); r.telefone = v('e_tel');
+  r.responsavel = v('e_resp'); r.status = newStatus;
+  r.nf = newNF; r.pagamento = newPag;
+  r.descricao = v('e_desc'); r.observacoes = v('e_obs');
+  r.anexos = [...pendingAnexos.e];
+  pendingAnexos.e = [];
+  persist();
+  if (oldStatus !== newStatus) logHist('status', `Status alterado em NAF ${r.naf}`, `${oldStatus} → ${newStatus}`, r.id);
+  else if (changes.length) logHist('edit', `NAF ${r.naf} editada`, changes.slice(0,3).join(' • '), r.id);
+  renderDashboard(); renderLista(); renderAlertas();
+  if (currentPage === 'resp') renderRespPage(currentRespFilter);
+  closeModal('editModal');
+  showToast('Atualizando...', 'success');
+  const result = await sheetsPost({ action: 'atualizar_naf', naf: r });
+  showToast(result?.status === 'ok' ? '✅ NAF atualizada no Sheets!' : '⚠️ Atualizado localmente.', result?.status === 'ok' ? 'success' : '');
+}
+
+async function deleteNAF(id) {
+  if (!confirm('Tem certeza que deseja excluir esta NAF? Esta ação não pode ser desfeita.')) return;
+  const r = nafs.find(x => x.id === id);
+  if (r) logHist('delete', `NAF ${r.naf} excluída`, `${r.empresa} — Responsável: ${r.responsavel}`, id);
+  nafs = nafs.filter(x => x.id !== id);
+  persist();
+  renderDashboard(); renderLista(); renderAlertas();
+  if (currentPage === 'resp') renderRespPage(currentRespFilter);
+  showToast('Excluindo...', '');
+  const result = await sheetsPost({ action: 'excluir_naf', id });
+  showToast(result?.status === 'ok' ? '✅ Excluída do Sheets!' : 'NAF excluída localmente.', '');
+}
+
+// ── RESPONSÁVEIS ──
+function renderRespList() {
+  const el = document.getElementById('respList');
+  el.innerHTML = responsaveis.map(r => {
+    const cnt = nafs.filter(n => n.responsavel === r).length;
+    const ini = r.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="resp-item">
+      <div class="resp-avatar">${ini}</div>
+      <div class="resp-name">${r}</div>
+      <div class="resp-count">${cnt} NAF(s)</div>
+      <button class="btn btn-secondary btn-sm" onclick="removeResp('${r}')" style="color:var(--danger);border-color:var(--danger-border)">Remover</button>
+    </div>`;
+  }).join('');
+}
+
+function openAddResp() {
+  document.getElementById('newRespName').value = '';
+  openModal('addRespModal');
+}
+
+async function addResponsavel() {
+  const name = document.getElementById('newRespName').value.trim();
+  if (!name) { showToast('Digite o nome.','error'); return; }
+  if (responsaveis.includes(name)) { showToast('Responsável já existe.','error'); return; }
+  responsaveis.push(name);
+  localStorage.setItem('resps_cache', JSON.stringify(responsaveis));
+  populateRespDropdowns(); renderNavResps(); renderRespList();
+  closeModal('addRespModal');
+  showToast(name + ' adicionado(a)!','success');
+  await sheetsPost({ action: 'salvar_resps', responsaveis });
+}
+
+async function removeResp(name) {
+  const cnt = nafs.filter(n => n.responsavel === name).length;
+  if (cnt > 0 && !confirm(`${name} tem ${cnt} NAF(s) registrada(s). Remover mesmo assim?`)) return;
+  responsaveis = responsaveis.filter(r => r !== name);
+  localStorage.setItem('resps_cache', JSON.stringify(responsaveis));
+  populateRespDropdowns(); renderNavResps(); renderRespList();
+  showToast(name + ' removido(a).');
+  await sheetsPost({ action: 'salvar_resps', responsaveis });
+}
+
+function populateRespDropdowns() {
+  ['n_resp','e_resp','filterResp'].forEach(id => populateSelect(id));
+}
+
+function populateSelect(id, selected) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isFilter = id === 'filterResp';
+  el.innerHTML = (isFilter ? '<option value="">Todos responsáveis</option>' : '<option value="">Selecione...</option>') +
+    responsaveis.map(r => `<option value="${r}" ${r===selected?'selected':''}>${r}</option>`).join('');
+}
+
+// ── GOOGLE SHEETS via APPS SCRIPT ──
+function saveConfig() {
+  const url = v('cfg_scripturl');
+  if (!url) { showConfigMsg('Cole a URL do Apps Script antes de salvar.','var(--danger)'); return; }
+  config = { scripturl: url };
+  localStorage.setItem('naf_config', JSON.stringify(config));
+  updateSheetsStatus();
+  showToast('Configuração salva!','success');
+  showConfigMsg('Configuração salva. Clique em "Testar conexão" para verificar.','var(--success)');
+}
+
+async function testSheets() {
+  if (!config.scripturl) { showConfigMsg('Salve a URL do Apps Script primeiro.','var(--danger)'); return; }
+  showConfigMsg('Testando conexão...','var(--text-muted)');
+  try {
+    const data = await sheetsGet({ action: 'ping' });
+    if (data && data.status === 'ok') {
+      showConfigMsg('✅ Conectado! Planilha: "' + (data.planilha || 'Controle de NAFs') + '"','var(--success)');
+      document.getElementById('sheetsDot').classList.add('connected');
+      document.getElementById('sheetsStatusText').textContent = 'Google Sheets: conectado';
+    } else {
+      showConfigMsg('❌ Resposta inesperada: ' + JSON.stringify(data),'var(--danger)');
+    }
+  } catch(e) {
+    showConfigMsg('❌ Erro: ' + e.message,'var(--danger)');
+  }
+}
+
+async function syncToSheets(rec) {
+  if (!config.scripturl) return;
+  await sheetsGet({ action: 'salvar_naf', naf: rec });
+}
+
+async function syncAllToSheets() {
+  if (!config.scripturl) { showToast('Configure a URL do Apps Script primeiro.','error'); return; }
+  showConfigMsg('Sincronizando todos os dados...','var(--text-muted)');
+  try {
+    const data = await sheetsGet({ action: 'sync_all', nafs: nafs, responsaveis: responsaveis });
+    if (data && data.status === 'ok') {
+      showConfigMsg('✅ Sincronização completa! ' + nafs.length + ' NAF(s) enviadas.','var(--success)');
+      showToast('Planilha sincronizada! ✅','success');
+      document.getElementById('sheetsDot').classList.add('connected');
+      document.getElementById('sheetsStatusText').textContent = 'Google Sheets: ' + nafs.length + ' NAF(s)';
+    } else {
+      showConfigMsg('❌ Erro: ' + JSON.stringify(data),'var(--danger)');
+    }
+  } catch(e) {
+    showConfigMsg('❌ Erro: ' + e.message,'var(--danger)');
+  }
+}
+
+
+function updateSheetsStatus() {
+  const ok = !!config.scripturl;
+  document.getElementById('sheetsDot').classList.toggle('connected', ok);
+  document.getElementById('sheetsStatusText').textContent = 'Google Sheets: ' + (ok ? 'configurado' : 'não conectado');
+}
+
+function showConfigMsg(msg, color) {
+  const el = document.getElementById('configMsg');
+  el.style.display = 'block';
+  el.style.color = color;
+  el.textContent = msg;
+}
+
+// ── BACKUP / RESTORE ──
+let pendingImport = null;
+
+function exportBackup() {
+  const backup = {
+    version: '2.0',
+    exportedAt: new Date().toISOString(),
+    nafs: nafs,
+    responsaveis: responsaveis,
+    historico: historico,
+    config: { sheetname: config.sheetname }
+  };
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], {type:'application/json;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'backup_naf_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  showToast('Backup completo baixado! 📦','success');
+}
+
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.nafs || !Array.isArray(data.nafs)) {
+        showImportMsg('❌ Arquivo inválido — não parece ser um backup do sistema.','error');
+        input.value = '';
+        return;
+      }
+      pendingImport = { type: 'json', data: data };
+      document.getElementById('importInfo').innerHTML = `
+        <strong>Arquivo carregado:</strong> ${file.name}<br>
+        📋 <strong>${data.nafs.length}</strong> NAF(s) no backup<br>
+        👥 <strong>${(data.responsaveis||[]).length}</strong> responsável(is)<br>
+        📅 Exportado em: ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('pt-BR') : 'data desconhecida'}<br><br>
+        <strong>Atualmente no sistema:</strong> ${nafs.length} NAF(s), ${responsaveis.length} responsável(is).
+      `;
+      openModal('importModal');
+      input.value = '';
+    } catch(err) {
+      showImportMsg('❌ Erro ao ler arquivo: ' + err.message,'error');
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function importCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const text = e.target.result.replace(/^\uFEFF/, ''); // remove BOM
+      const rows = parseCSV(text);
+      if (rows.length < 2) {
+        showImportMsg('❌ Arquivo CSV vazio ou inválido.','error');
+        input.value = '';
+        return;
+      }
+      const headers = rows[0].map(h => h.toLowerCase().trim());
+      const expected = ['nº naf','nº mem','data','empresa','email','telefone','responsável','descrição','status','entregou nf','pagamento'];
+      const idx = name => headers.findIndex(h => h.includes(name.toLowerCase()));
+
+      const naf_i = idx('nº naf') !== -1 ? idx('nº naf') : idx('naf');
+      const mem_i = idx('mem');
+      const data_i = idx('data');
+      const emp_i = idx('empresa');
+      const email_i = idx('email');
+      const tel_i = idx('telefone');
+      const resp_i = idx('responsável') !== -1 ? idx('responsável') : idx('responsavel');
+      const desc_i = idx('descri');
+      const status_i = idx('status');
+      const nf_i = idx('entregou') !== -1 ? idx('entregou') : idx('nf');
+      const pag_i = idx('pagamento');
+      const obs_i = idx('observ');
+
+      if (naf_i === -1 || emp_i === -1) {
+        showImportMsg('❌ CSV não reconhecido. As colunas devem incluir pelo menos "Nº NAF" e "Empresa".','error');
+        input.value = '';
+        return;
+      }
+
+      const imported = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r[naf_i] && !r[emp_i]) continue;
+        imported.push({
+          id: Date.now() + i,
+          naf: r[naf_i] || '',
+          mem: mem_i !== -1 ? (r[mem_i] || '') : '',
+          data: data_i !== -1 ? (r[data_i] || '') : '',
+          empresa: r[emp_i] || '',
+          email: email_i !== -1 ? (r[email_i] || '') : '',
+          telefone: tel_i !== -1 ? (r[tel_i] || '') : '',
+          responsavel: resp_i !== -1 ? (r[resp_i] || '') : '',
+          descricao: desc_i !== -1 ? (r[desc_i] || '') : '',
+          status: status_i !== -1 ? (r[status_i] || 'Pendente') : 'Pendente',
+          nf: nf_i !== -1 ? (r[nf_i] || 'Não') : 'Não',
+          pagamento: pag_i !== -1 ? (r[pag_i] || 'Não') : 'Não',
+          observacoes: obs_i !== -1 ? (r[obs_i] || '') : ''
+        });
+      }
+
+      if (!imported.length) {
+        showImportMsg('❌ Nenhuma linha válida encontrada no CSV.','error');
+        input.value = '';
+        return;
+      }
+
+      // detect new responsaveis
+      const newResps = [...new Set(imported.map(r => r.responsavel).filter(r => r && !responsaveis.includes(r)))];
+
+      pendingImport = { type: 'csv', data: imported, newResps };
+      document.getElementById('importInfo').innerHTML = `
+        <strong>Arquivo carregado:</strong> ${file.name}<br>
+        📋 <strong>${imported.length}</strong> NAF(s) encontrada(s) no arquivo<br>
+        ${newResps.length ? `👥 <strong>${newResps.length}</strong> novo(s) responsável(is): ${newResps.join(', ')}<br>` : ''}
+        <br><strong>Atualmente no sistema:</strong> ${nafs.length} NAF(s).
+      `;
+      openModal('importModal');
+      input.value = '';
+    } catch(err) {
+      showImportMsg('❌ Erro ao processar CSV: ' + err.message,'error');
+      input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function executeImport() {
+  if (!pendingImport) return;
+  const mode = document.querySelector('input[name="imp_mode"]:checked').value;
+
+  if (pendingImport.type === 'json') {
+    const data = pendingImport.data;
+    if (mode === 'replace') {
+      nafs = data.nafs;
+      if (data.responsaveis && data.responsaveis.length) responsaveis = data.responsaveis;
+      if (data.historico) historico = data.historico;
+    } else {
+      // add — assign new IDs to avoid conflict
+      const newNafs = data.nafs.map((n, i) => ({...n, id: Date.now() + i}));
+      nafs = [...newNafs, ...nafs];
+      if (data.responsaveis) {
+        data.responsaveis.forEach(r => { if (!responsaveis.includes(r)) responsaveis.push(r); });
+      }
+      if (data.historico) historico = [...data.historico, ...historico];
+    }
+    localStorage.setItem('naf_historico', JSON.stringify(historico));
+  } else {
+    // CSV
+    const imported = pendingImport.data;
+    if (mode === 'replace') {
+      nafs = imported;
+    } else {
+      nafs = [...imported, ...nafs];
+    }
+    // add new responsaveis automatically
+    pendingImport.newResps.forEach(r => { if (!responsaveis.includes(r)) responsaveis.push(r); });
+  }
+
+  persist();
+  localStorage.setItem('resps_v2', JSON.stringify(responsaveis));
+  populateRespDropdowns();
+  renderNavResps();
+  renderDashboard();
+  renderLista();
+  renderRespList();
+  closeModal('importModal');
+  showImportMsg(`✅ Restauração concluída! ${mode === 'replace' ? 'Dados substituídos' : 'Dados adicionados'} com sucesso.`,'success');
+  showToast('Restauração concluída! ✅','success');
+  pendingImport = null;
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i+1];
+    if (inQuotes) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { field += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (field || row.length) { row.push(field); rows.push(row); row = []; field = ''; }
+        if (c === '\r' && next === '\n') i++;
+      } else { field += c; }
+    }
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+function showImportMsg(msg, type) {
+  const el = document.getElementById('importMsg');
+  el.style.display = 'block';
+  el.textContent = msg;
+  if (type === 'success') {
+    el.style.background = 'var(--success-light)';
+    el.style.color = 'var(--success)';
+    el.style.border = '1px solid var(--success-border)';
+  } else {
+    el.style.background = 'var(--danger-light)';
+    el.style.color = 'var(--danger)';
+    el.style.border = '1px solid var(--danger-border)';
+  }
+  setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+// ── ANEXOS ──
+let pendingAnexos = { n: [], e: [] }; // anexos sendo adicionados no form
+
+async function addAnexos(prefix, files) {
+  for (const file of files) {
+    if (file.size > 2 * 1024 * 1024) {
+      showToast(`⚠️ ${file.name} é muito grande (máx 2MB)`, 'error');
+      continue;
+    }
+    const base64 = await fileToBase64(file);
+    pendingAnexos[prefix].push({
+      id: Date.now() + Math.random(),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      data: base64
+    });
+  }
+  renderAnexosList(prefix);
+  document.getElementById(prefix + '_anexos_input').value = '';
+}
+
+function renderAnexosList(prefix) {
+  const list = document.getElementById(prefix + '_anexos_list');
+  if (!pendingAnexos[prefix].length) { list.innerHTML = ''; return; }
+  list.innerHTML = pendingAnexos[prefix].map(a => {
+    const isImg = a.type && a.type.startsWith('image');
+    return `<div class="anexo-item">
+      <span class="anexo-icon">${isImg ? '🖼️' : '📄'}</span>
+      <div style="flex:1;min-width:0">
+        <div class="anexo-name">${a.name}</div>
+        <div class="anexo-size">${formatSize(a.size)}</div>
+      </div>
+      <div class="anexo-actions">
+        <button class="icon-btn" onclick="viewAnexoPending('${prefix}','${a.id}')" title="Visualizar">👁️</button>
+        <button class="icon-btn danger" onclick="removeAnexoPending('${prefix}','${a.id}')" title="Remover">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function viewAnexoPending(prefix, id) {
+  const anexo = pendingAnexos[prefix].find(a => a.id == id);
+  if (!anexo) return;
+  const w = window.open('');
+  if (anexo.type && anexo.type.startsWith('image')) {
+    w.document.write(`<title>${anexo.name}</title><body style="margin:0;background:#222;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${anexo.data}" style="max-width:100%;max-height:100vh"/></body>`);
+  } else {
+    w.document.write(`<title>${anexo.name}</title><body style="margin:0"><embed src="${anexo.data}" style="width:100vw;height:100vh"/></body>`);
+  }
+}
+
+function removeAnexoPending(prefix, id) {
+  pendingAnexos[prefix] = pendingAnexos[prefix].filter(a => a.id != id);
+  renderAnexosList(prefix);
+}
+
+function fileToBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function formatSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/(1024*1024)).toFixed(1) + ' MB';
+}
+
+// ── HISTÓRICO ──
+function logHist(type, action, detail, nafId) {
+  historico.unshift({
+    id: Date.now(),
+    type, action, detail,
+    nafId,
+    timestamp: new Date().toISOString()
+  });
+  // limita a 500 registros
+  if (historico.length > 500) historico = historico.slice(0, 500);
+  localStorage.setItem('naf_historico', JSON.stringify(historico));
+}
+
+function renderHistorico() {
+  const search = (document.getElementById('histSearch')?.value || '').toLowerCase();
+  const fType = document.getElementById('histType')?.value || '';
+  let data = [...historico];
+  if (search) data = data.filter(h => (h.action+' '+h.detail).toLowerCase().includes(search));
+  if (fType) data = data.filter(h => h.type === fType);
+
+  document.getElementById('histCount').textContent = data.length + ' registro(s)';
+  const list = document.getElementById('histList');
+  const empty = document.getElementById('histEmpty');
+  if (!data.length) { list.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  list.innerHTML = data.map(h => {
+    const iconMap = { create: '➕', edit: '✏️', status: '🏷️', move: '🔀', delete: '🗑️', nf: '📄', pag: '💰' };
+    const ico = iconMap[h.type] || '📌';
+    return `<div class="hist-item">
+      <div class="hist-icon ${h.type}">${ico}</div>
+      <div class="hist-content">
+        <div class="hist-action">${h.action}</div>
+        <div class="hist-detail">${h.detail}</div>
+        <div class="hist-time">${formatDateTime(h.timestamp)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function formatDateTime(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return 'agora mesmo';
+  if (diff < 3600) return Math.floor(diff/60) + ' min atrás';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h atrás';
+  return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function limparHistorico() {
+  if (!confirm('Limpar todo o histórico de alterações? Esta ação não pode ser desfeita.')) return;
+  historico = [];
+  localStorage.removeItem('naf_historico');
+  renderHistorico();
+  showToast('Histórico limpo.');
+}
+
+// ── ALERTAS DE NAFS PARADAS ──
+function getDaysSince(dateStr) {
+  if (!dateStr) return 0;
+  const d = new Date(dateStr + 'T12:00:00');
+  return Math.floor((new Date() - d) / (1000 * 60 * 60 * 24));
+}
+
+function renderAlertas() {
+  const area = document.getElementById('alertArea');
+  if (!area) return;
+
+  const pendentesAntigas = nafs.filter(n =>
+    n.status !== 'Concluída' && n.status !== 'Anulada' &&
+    getDaysSince(n.data) > 30
+  );
+  const muitoAntigas = pendentesAntigas.filter(n => getDaysSince(n.data) > 60);
+
+  if (!pendentesAntigas.length) { area.innerHTML = ''; return; }
+
+  let html = '';
+  if (muitoAntigas.length) {
+    html += `<div class="alert-banner danger">
+      <span class="alert-icon">🚨</span>
+      <div class="alert-text">
+        <strong>${muitoAntigas.length} NAF(s) parada(s) há mais de 60 dias</strong> sem conclusão.
+        Precisam de atenção urgente.
+      </div>
+      <button onclick="filtrarAntigas(60)">Ver NAFs →</button>
+    </div>`;
+  }
+  const apenasAntigas = pendentesAntigas.length - muitoAntigas.length;
+  if (apenasAntigas > 0) {
+    html += `<div class="alert-banner">
+      <span class="alert-icon">⚠️</span>
+      <div class="alert-text">
+        <strong>${apenasAntigas} NAF(s) parada(s) entre 30 e 60 dias</strong> aguardando andamento.
+      </div>
+      <button onclick="filtrarAntigas(30)">Ver NAFs →</button>
+    </div>`;
+  }
+  area.innerHTML = html;
+}
+
+function filtrarAntigas(minDays) {
+  goPage('lista');
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('sortBy').value = 'data_asc';
+  document.getElementById('searchInput').value = '';
+  // marca um filtro virtual usando search
+  renderLista();
+  showToast(`Ordenado por data crescente — as mais antigas estão no topo`);
+}
+
+function getAgeBadge(naf) {
+  if (naf.status === 'Concluída' || naf.status === 'Anulada') return '';
+  const days = getDaysSince(naf.data);
+  if (days > 60) return `<span class="age-badge age-critic">🚨 ${days}d</span>`;
+  if (days > 30) return `<span class="age-badge age-old">⚠️ ${days}d</span>`;
+  return '';
+}
+
+// ── PDF ──
+function exportPDF() {
+  if (!nafs.length) { showToast('Nenhuma NAF para exportar.'); return; }
+  if (typeof jspdf === 'undefined') { showToast('Biblioteca PDF não carregada. Recarregue a página.', 'error'); return; }
+
+  const { jsPDF } = jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  // Cabeçalho
+  doc.setFontSize(16); doc.setFont(undefined, 'bold');
+  doc.text('Relatório de NAFs', 14, 15);
+  doc.setFontSize(10); doc.setFont(undefined, 'normal');
+  doc.text('Secretaria Municipal de Educação', 14, 21);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 26);
+  doc.text(`Total: ${nafs.length} NAF(s)`, 14, 31);
+
+  // Estatísticas
+  const pendentes = nafs.filter(n => n.status === 'Pendente').length;
+  const processo = nafs.filter(n => n.status === 'Em processo').length;
+  const concluidas = nafs.filter(n => n.status === 'Concluída').length;
+  const anuladas = nafs.filter(n => n.status === 'Anulada').length;
+  doc.setTextColor(0);
+  doc.text(`Pendentes: ${pendentes} | Em processo: ${processo} | Concluídas: ${concluidas} | Anuladas: ${anuladas}`, 90, 26);
+
+  // Tabela
+  const headers = [['Nº NAF','MEM','Data','Empresa','Descrição','Responsável','Status','NF','Pag.']];
+  const rows = nafs.map(r => [
+    r.naf || '—', r.mem || '—',
+    r.data ? new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR') : '—',
+    r.empresa || '—',
+    (r.descricao || '—').substring(0, 50) + ((r.descricao||'').length > 50 ? '...' : ''),
+    r.responsavel || '—', r.status || 'Pendente',
+    r.nf || 'Não', r.pagamento || 'Não'
+  ]);
+
+  doc.autoTable({
+    head: headers, body: rows, startY: 38,
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [29, 78, 216], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 18 }, 1: { cellWidth: 15 }, 2: { cellWidth: 20 },
+      3: { cellWidth: 45 }, 4: { cellWidth: 60 }, 5: { cellWidth: 25 },
+      6: { cellWidth: 25 }, 7: { cellWidth: 15 }, 8: { cellWidth: 15 }
+    },
+    didParseCell: function(data) {
+      if (data.section === 'body' && data.column.index === 6) {
+        const v = data.cell.raw;
+        if (v === 'Pendente') data.cell.styles.textColor = [180, 83, 9];
+        else if (v === 'Em processo') data.cell.styles.textColor = [29, 78, 216];
+        else if (v === 'Concluída') data.cell.styles.textColor = [21, 128, 61];
+        else if (v === 'Anulada') data.cell.styles.textColor = [185, 28, 28];
+      }
+    }
+  });
+
+  // Rodapé
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8); doc.setTextColor(150);
+    doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width - 25, doc.internal.pageSize.height - 8);
+    doc.text('Sistema de NAFs — Secretaria Municipal de Educação', 14, doc.internal.pageSize.height - 8);
+  }
+
+  doc.save(`relatorio_nafs_${new Date().toISOString().slice(0,10)}.pdf`);
+  showToast('Relatório PDF gerado! 📄', 'success');
+}
+
+// ── EXCEL ORGANIZADO ──
+function exportExcel() {
+  if (!nafs.length) { showToast('Nenhuma NAF para exportar.'); return; }
+  if (typeof XLSX === 'undefined') { showToast('Biblioteca Excel não carregada.', 'error'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const headers = ['Nº NAF','Nº MEM','Data','Empresa','E-mail','Telefone','Responsável','Descrição','Status','Entregou NF','Pagamento','Dias parada','Observações'];
+
+  // ── ABA 1: RESUMO ──
+  const totalNafs = nafs.length;
+  const totPendentes = nafs.filter(n => n.status === 'Pendente').length;
+  const totProcesso = nafs.filter(n => n.status === 'Em processo').length;
+  const totConcluidas = nafs.filter(n => n.status === 'Concluída').length;
+  const totAnuladas = nafs.filter(n => n.status === 'Anulada').length;
+  const totSemNF = nafs.filter(n => n.nf === 'Não' && n.status !== 'Anulada').length;
+  const totComNF = nafs.filter(n => n.nf === 'Sim').length;
+  const totPagas = nafs.filter(n => n.pagamento === 'Sim').length;
+  const totSemPag = nafs.filter(n => n.pagamento === 'Não' && n.status !== 'Anulada').length;
+
+  const resumoData = [
+    ['SECRETARIA MUNICIPAL DE EDUCAÇÃO'],
+    ['Relatório de Controle de NAFs'],
+    [`Gerado em: ${new Date().toLocaleString('pt-BR')}`],
+    [],
+    ['VISÃO GERAL'],
+    ['Total de NAFs', totalNafs],
+    [],
+    ['POR STATUS'],
+    ['Pendentes', totPendentes],
+    ['Em processo', totProcesso],
+    ['Concluídas', totConcluidas],
+    ['Anuladas', totAnuladas],
+    [],
+    ['NOTA FISCAL'],
+    ['Com NF entregue', totComNF],
+    ['Sem NF', totSemNF],
+    [],
+    ['PAGAMENTO'],
+    ['Pagas', totPagas],
+    ['Sem pagamento', totSemPag],
+    [],
+    ['POR RESPONSÁVEL']
+  ];
+
+  responsaveis.forEach(resp => {
+    const cnt = nafs.filter(n => n.responsavel === resp).length;
+    const pend = nafs.filter(n => n.responsavel === resp && n.status === 'Pendente').length;
+    const concl = nafs.filter(n => n.responsavel === resp && n.status === 'Concluída').length;
+    resumoData.push([resp, `${cnt} NAF(s)`, `${pend} pendente(s)`, `${concl} concluída(s)`]);
+  });
+
+  const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
+  wsResumo['!cols'] = [{wch:32},{wch:18},{wch:18},{wch:18}];
+  // Merge título
+  wsResumo['!merges'] = [
+    {s:{r:0,c:0},e:{r:0,c:3}},
+    {s:{r:1,c:0},e:{r:1,c:3}},
+    {s:{r:2,c:0},e:{r:2,c:3}}
+  ];
+  applyResumoStyles(wsResumo, resumoData.length);
+  XLSX.utils.book_append_sheet(wb, wsResumo, '📊 Resumo');
+
+  // ── ABA 2: TODAS AS NAFs ──
+  const todasData = [headers, ...nafs.map(nafToRow)];
+  const wsTodas = XLSX.utils.aoa_to_sheet(todasData);
+  setColWidths(wsTodas);
+  styleHeader(wsTodas, headers.length);
+  styleStatusColumn(wsTodas, todasData.length, 8); // col I = status
+  XLSX.utils.book_append_sheet(wb, wsTodas, '📋 Todas as NAFs');
+
+  // ── ABA 3+: UMA PARA CADA RESPONSÁVEL ──
+  responsaveis.forEach(resp => {
+    const dadosResp = nafs.filter(n => n.responsavel === resp);
+    if (!dadosResp.length) return;
+
+    // ordena por data (mais antiga primeiro) para ver o que está parado
+    dadosResp.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+
+    const respData = [
+      [`NAFs sob responsabilidade de ${resp}`],
+      [`${dadosResp.length} NAF(s) • Gerado em ${new Date().toLocaleString('pt-BR')}`],
+      [],
+      headers,
+      ...dadosResp.map(nafToRow)
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(respData);
+    ws['!merges'] = [
+      {s:{r:0,c:0},e:{r:0,c:headers.length-1}},
+      {s:{r:1,c:0},e:{r:1,c:headers.length-1}}
+    ];
+    setColWidths(ws);
+    styleHeader(ws, headers.length, 3); // header está na linha 4 (idx 3)
+    styleStatusColumn(ws, respData.length, 8, 4);
+    styleTitle(ws);
+    XLSX.utils.book_append_sheet(wb, ws, `👤 ${resp.substring(0, 28)}`);
+  });
+
+  // ── ABA: PENDENTES/SEM NF/SEM PAGAMENTO ──
+  const acaoData = nafs.filter(n =>
+    (n.status === 'Pendente' || n.status === 'Em processo') ||
+    (n.nf === 'Não' && n.status !== 'Anulada') ||
+    (n.pagamento === 'Não' && n.status !== 'Anulada')
+  );
+  if (acaoData.length) {
+    acaoData.sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+    const acaoSheet = [
+      ['NAFs que requerem atenção'],
+      [`${acaoData.length} NAF(s) • Pendentes, sem NF ou sem pagamento`],
+      [],
+      headers,
+      ...acaoData.map(nafToRow)
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(acaoSheet);
+    ws['!merges'] = [
+      {s:{r:0,c:0},e:{r:0,c:headers.length-1}},
+      {s:{r:1,c:0},e:{r:1,c:headers.length-1}}
+    ];
+    setColWidths(ws);
+    styleHeader(ws, headers.length, 3);
+    styleStatusColumn(ws, acaoSheet.length, 8, 4);
+    styleTitle(ws);
+    XLSX.utils.book_append_sheet(wb, ws, '⚠️ Requer atenção');
+  }
+
+  const filename = `nafs_organizado_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('Planilha Excel organizada baixada! 📊', 'success');
+}
+
+function nafToRow(n) {
+  const dias = n.data && n.status !== 'Concluída' && n.status !== 'Anulada' ? getDaysSince(n.data) : '';
+  return [
+    n.naf || '',
+    n.mem || '',
+    n.data ? new Date(n.data + 'T12:00:00').toLocaleDateString('pt-BR') : '',
+    n.empresa || '',
+    n.email || '',
+    n.telefone || '',
+    n.responsavel || '',
+    n.descricao || '',
+    n.status || 'Pendente',
+    n.nf || 'Não',
+    n.pagamento || 'Não',
+    dias === '' ? '' : dias + ' dias',
+    n.observacoes || ''
+  ];
+}
+
+function setColWidths(ws) {
+  ws['!cols'] = [
+    {wch:10}, // NAF
+    {wch:10}, // MEM
+    {wch:12}, // Data
+    {wch:32}, // Empresa
+    {wch:28}, // Email
+    {wch:16}, // Telefone
+    {wch:15}, // Responsável
+    {wch:42}, // Descrição
+    {wch:14}, // Status
+    {wch:12}, // NF
+    {wch:12}, // Pagamento
+    {wch:12}, // Dias
+    {wch:28}  // Observações
+  ];
+}
+
+function styleHeader(ws, cols, rowIdx = 0) {
+  for (let c = 0; c < cols; c++) {
+    const addr = XLSX.utils.encode_cell({r: rowIdx, c});
+    if (!ws[addr]) continue;
+    ws[addr].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+      fill: { fgColor: { rgb: '1D4ED8' }, patternType: 'solid' },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        top: { style: 'thin', color: { rgb: '0F172A' } },
+        bottom: { style: 'thin', color: { rgb: '0F172A' } },
+        left: { style: 'thin', color: { rgb: '0F172A' } },
+        right: { style: 'thin', color: { rgb: '0F172A' } }
+      }
+    };
+  }
+  ws['!rows'] = ws['!rows'] || [];
+  ws['!rows'][rowIdx] = { hpt: 24 };
+}
+
+function styleTitle(ws) {
+  if (ws['A1']) {
+    ws['A1'].s = {
+      font: { bold: true, sz: 14, color: { rgb: '1D4ED8' } },
+      alignment: { horizontal: 'center' }
+    };
+  }
+  if (ws['A2']) {
+    ws['A2'].s = {
+      font: { italic: true, sz: 10, color: { rgb: '6B6860' } },
+      alignment: { horizontal: 'center' }
+    };
+  }
+}
+
+function styleStatusColumn(ws, totalRows, statusColIdx, startRow = 1) {
+  const colors = {
+    'Pendente':    { fg: 'FFFBEB', text: 'B45309' },
+    'Em processo': { fg: 'EFF6FF', text: '1D4ED8' },
+    'Concluída':   { fg: 'F0FDF4', text: '15803D' },
+    'Anulada':     { fg: 'FEF2F2', text: 'B91C1C' }
+  };
+  for (let r = startRow; r < totalRows; r++) {
+    const addr = XLSX.utils.encode_cell({r, c: statusColIdx});
+    if (!ws[addr]) continue;
+    const val = ws[addr].v;
+    const c = colors[val];
+    if (c) {
+      ws[addr].s = {
+        fill: { fgColor: { rgb: c.fg }, patternType: 'solid' },
+        font: { color: { rgb: c.text }, bold: true, sz: 10 },
+        alignment: { horizontal: 'center' }
+      };
+    }
+  }
+}
+
+function applyResumoStyles(ws, totalRows) {
+  // Título principal
+  if (ws['A1']) ws['A1'].s = { font: { bold: true, sz: 16, color: { rgb: '1D4ED8' } }, alignment: { horizontal: 'center' } };
+  if (ws['A2']) ws['A2'].s = { font: { bold: true, sz: 13, color: { rgb: '1A1D23' } }, alignment: { horizontal: 'center' } };
+  if (ws['A3']) ws['A3'].s = { font: { italic: true, sz: 10, color: { rgb: '6B6860' } }, alignment: { horizontal: 'center' } };
+
+  // Section headers (uppercase rows)
+  for (let r = 0; r < totalRows; r++) {
+    const addr = XLSX.utils.encode_cell({r, c: 0});
+    if (!ws[addr]) continue;
+    const v = ws[addr].v;
+    if (typeof v === 'string' && v === v.toUpperCase() && v.length > 3 && r > 3) {
+      ws[addr].s = {
+        font: { bold: true, sz: 11, color: { rgb: '1D4ED8' } },
+        fill: { fgColor: { rgb: 'EFF6FF' }, patternType: 'solid' }
+      };
+    }
+  }
+  ws['!rows'] = [{hpt:22},{hpt:18},{hpt:16}];
+}
+
+// ── EXPORT ──
+function exportCSV() {
+  if (!nafs.length) { showToast('Nenhuma NAF para exportar.'); return; }
+  const headers = ['Nº NAF','Nº MEM','Data','Empresa','Email','Telefone','Responsável','Descrição','Status','Entregou NF','Pagamento','Observações'];
+  const rows = nafs.map(r => [r.naf,r.mem,r.data,r.empresa,r.email,r.telefone,r.responsavel,r.descricao,r.status,r.nf,r.pagamento,r.observacoes]
+    .map(v => '"'+(v||'').replace(/"/g,'""')+'"').join(','));
+  const csv = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download = 'controle_nafs_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showToast('CSV exportado com sucesso!','success');
+}
+
+// ── HELPERS ──
+function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+function set(id, val) { const el = document.getElementById(id); if (el) el.value = val || ''; }
+// ── COMUNICAÇÃO COM SHEETS (tudo via GET para evitar CORS) ──
+// ── COMUNICAÇÃO COM SHEETS via JSONP (resolve CORS do Google) ──
+function sheetsGet(params) {
+  return new Promise((resolve) => {
+    const callbackName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    const qs = Object.entries(params)
+      .map(([k, v]) => k + '=' + encodeURIComponent(typeof v === 'object' ? JSON.stringify(v) : String(v)))
+      .join('&');
+    const url = config.scripturl + '?' + qs + '&callback=' + callbackName;
+
+    // Timeout de 15 segundos
+    const timeout = setTimeout(() => {
+      cleanup();
+      console.warn('Sheets timeout');
+      resolve(null);
+    }, 15000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      if (window[callbackName]) delete window[callbackName];
+      const s = document.getElementById(callbackName);
+      if (s) s.remove();
+    }
+
+    window[callbackName] = function(data) {
+      cleanup();
+      resolve(data);
+    };
+
+    const script = document.createElement('script');
+    script.id = callbackName;
+    script.src = url;
+    script.onerror = () => { cleanup(); resolve(null); };
+    document.head.appendChild(script);
+  });
+}
+
+async function sheetsPost(payload) {
+  return sheetsGet(payload);
+}
+
+function persist() {
+  localStorage.setItem('nafs_cache', JSON.stringify(nafs));
+}
+function fmtDate(d) { return d ? new Date(d+'T12:00:00').toLocaleDateString('pt-BR') : '—'; }
+
+function pillStatus(s) {
+  const map = {'Pendente':'pill-pendente','Em processo':'pill-processo','Concluída':'pill-concluida','Anulada':'pill-anulada'};
+  return `<span class="pill ${map[s]||'pill-pendente'}">${s||'Pendente'}</span>`;
+}
+function pillNF(nf) {
+  if (nf === 'Sim') return `<span class="pill pill-sim">✓ Sim</span>`;
+  if (nf === 'Anulada') return `<span class="pill pill-anulada">Anulada</span>`;
+  return `<span class="pill pill-nao">Não</span>`;
+}
+
+function clearForm() {
+  ['n_naf','n_mem','n_empresa','n_email','n_tel','n_desc','n_obs'].forEach(id => set(id,''));
+  set('n_resp',''); set('n_status','Pendente'); set('n_nf','Não'); set('n_pag','Não');
+  setTodayDate();
+  pendingAnexos.n = [];
+  renderAnexosList('n');
+  const banner = document.getElementById('dupBanner');
+  if (banner) banner.remove();
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' '+type : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+
+// Mobile
+if (window.innerWidth <= 680) document.getElementById('menuBtn').style.display = 'block';
+
+verificarSessao();
+</script>
+</body>
+</html>
